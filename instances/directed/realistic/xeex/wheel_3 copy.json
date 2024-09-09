@@ -1,0 +1,54 @@
+{
+    "name": "wheel_32",
+    "type": "virtual",
+    "nodes": [
+        {
+            "id": 1,
+            "demand": 1
+        },
+        {
+            "id": 2,
+            "demand": 1
+        },
+        {
+            "id": 3,
+            "demand": 1
+        },
+        {
+            "id": 4,
+            "demand": 1
+        }
+    ],
+    "edges": [
+        {
+            "source": 2,
+            "target": 1,
+            "demand": 1
+        },
+        {
+            "source": 2,
+            "target": 3,
+            "demand": 1
+        },
+        {
+            "source": 3,
+            "target": 1,
+            "demand": 1
+        },
+        {
+            "source": 3,
+            "target": 4,
+            "demand": 1
+        },
+        {
+            "source": 4,
+            "target": 1,
+            "demand": 1
+        },
+        {
+            "source": 4,
+            "target": 2,
+            "demand": 1
+        }
+    ]
+}

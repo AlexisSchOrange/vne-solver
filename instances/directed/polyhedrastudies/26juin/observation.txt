@@ -1,0 +1,7 @@
+Objectif:
+Bien caractériser les cas polynomiaux avec unit demand, unit capacity pour l'instant. Inégalités pour commencer, ensuite les trucs plus technique genre 1-squelettes, etc.
+On commence par chemin sur chemin, cycle sur cycle
+
+test1 (old) P_2 -> P_2: une seule solution donc que des hyperplans
+test2 (atm) P_2 -> P_3: fait apparaitre les contraintes de succession
+On a toujours les contraintes de sucession, même pour des réseaux plus long, donc c'est pasmal mais j'ai l'impression que ça revient au même que la contrainte de conservation de flow + celle de départ de flow

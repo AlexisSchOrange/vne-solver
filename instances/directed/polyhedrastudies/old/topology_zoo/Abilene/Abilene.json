@@ -1,0 +1,177 @@
+{
+  "name": "Abilene",
+  "type": "substrate",
+  "nodes": [
+    {
+      "id": 1,
+      "capacity": 3,
+      "cost": 1
+    },
+    {
+      "id": 2,
+      "capacity": 4,
+      "cost": 1
+    },
+    {
+      "id": 3,
+      "capacity": 3,
+      "cost": 1
+    },
+    {
+      "id": 4,
+      "capacity": 3,
+      "cost": 1
+    },
+    {
+      "id": 5,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "id": 6,
+      "capacity": 4,
+      "cost": 1
+    },
+    {
+      "id": 7,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "id": 8,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "id": 9,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "id": 10,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "id": 11,
+      "capacity": 2,
+      "cost": 1
+    }
+  ],
+  "edges": [
+    {
+      "source": 1,
+      "target": 2,
+      "capacity": 4,
+      "cost": 1
+    },
+    {
+      "source": 1,
+      "target": 3,
+      "capacity": 3,
+      "cost": 1
+    },
+    {
+      "source": 2,
+      "target": 1,
+      "capacity": 4,
+      "cost": 1
+    },
+    {
+      "source": 2,
+      "target": 11,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "source": 3,
+      "target": 10,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "source": 4,
+      "target": 5,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "source": 4,
+      "target": 7,
+      "capacity": 3,
+      "cost": 1
+    },
+    {
+      "source": 5,
+      "target": 4,
+      "capacity": 3,
+      "cost": 1
+    },
+    {
+      "source": 5,
+      "target": 6,
+      "capacity": 3,
+      "cost": 1
+    },
+    {
+      "source": 5,
+      "target": 7,
+      "capacity": 3,
+      "cost": 1
+    },
+    {
+      "source": 6,
+      "target": 5,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "source": 6,
+      "target": 9,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "source": 7,
+      "target": 4,
+      "capacity": 3,
+      "cost": 1
+    },
+    {
+      "source": 7,
+      "target": 8,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "source": 8,
+      "target": 9,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "source": 8,
+      "target": 11,
+      "capacity": 4,
+      "cost": 1
+    },
+    {
+      "source": 9,
+      "target": 10,
+      "capacity": 4,
+      "cost": 1
+    },
+    {
+      "source": 10,
+      "target": 11,
+      "capacity": 2,
+      "cost": 1
+    },
+    {
+      "source": 11,
+      "target": 8,
+      "capacity": 4,
+      "cost": 1
+    }
+  ]
+}

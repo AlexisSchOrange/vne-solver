@@ -1,0 +1,3 @@
+test1: diamand acyclique donc très contraint, les observations ne semble pas très intéressante malgré la présente d'une inég très forte x + y >= 1 
+test2: rajout d'une arrete pour cyclique substrat, terrifiant il y a plus de dimension, de solution (logique) mais les inégalités deviennent très compliquéesk
+test3: rajoute d'une arrete pour cyclique virtual,

@@ -1,0 +1,112 @@
+2908: des instances un peu plus dures pour la décompo par les sousgraphes VN
+
+
+3008: 
+je reprends l'instance à 4 sous réseaux et je la teste sur différent réseaux pour voir comment c'est efficace
+Integer avec 30sec
+Résultats:
+                Bandcon     ANS     DFN     Biznet      Intera      INS
+Nb Noeud        21          17      60      29          27          33
+Relax 1         17          17      17      17          17          17
+Relax 2         71          71      71      71          71          71
+Int. Relax      79.5        79.5    71      82          78          77.2
+Int. Sol        89          93      77      101         91          91
+CG Relax        83.38       85      75      87          81.9        82.6
+CG Sol          87          95      77      105         93          89
+
+AFN: bcp plus long pour la CG, alors que la résol exacte trouve en 40s l'optimal 
+Biznet peu connecté donc plus cher
+
+
+
+0209
+Tester la CG avec des étoiles en subproblem
+ans : Pour une simple star: LP 6, better LP 16, IP 18. Il nous manque des contraintes.
+ans2: multistar: LP 15, better LP 45, IP 59, CG 48
+INS multistar: CG 47, better LP 45, IP 57. Mais IP trouve très vite l'optimum grace a des 0 half cuts
+Tests avec un arbre substrate pareillement
+Tree vinaren avec un VN K_5 + C_5 + W_5 et pas mal de caps sur l'arbre (sinon infaisable vite)
+LP 16, better LP 76, IP 102, CG 101.3, CGIP 102
+La relax est bien améliorée par CPLEX, bcp de 0half cuts. CG excellente, mais CPLEX est déjà très rapide... 
+Aussi, quand j'augmente les caps des arretes, CPLEX est bcp plus lent, 5s à 30s.
+
+
+Cut of stars
+1: Au niveau le plus simple, si j'ai assez de lien qui arrivent sur un noeud, et que les couts sont unitaires, la relax donne direct la meilleure sol.
+On peut généraliser ça: si Gs contient Gr comme sousgraphe, avec des couts uniformes, alors la relax donne directement la sol optimale.
+Si a/ les couts ne sont pas unitaires et/ou 2/ il n'y a pas Gr en sous graph mais les capacites ne sont pas unitaires (sinon on ne peut pas résoudre), alors c'est plus intéressant.
+2: Avec des couts variés, on a un gap de 2 (19 vs 23 mais /2)
+3: avec moins d'arretes mais des caps à 3, j'obtient comme diff le nombre d'arrete supplémentaire qu'on utilise, normal (c'est tjr le cas)
+Maintenant niveau polyedra: 
+pour l'instance 1, malgré les caps de 1, il y a déjà bcp trop de solutions. Plus surprenant, la 3 aussi c'est trop long.
+4: Gs est bcp plus simple, pour avoir bcp moins de sols. On en a déjà 36, logique puisque les leafs sont interchangeables... Donc bcp de symetries.
+    80 variables, 30 que je peux enlever gratuitement (à automatiser pour undir ?), mais reste encore bcp...
+    pétard juste en mettant la capacité à 2 sur les arretes on passe à 1300 sols... C'est méga exponentiel...
+
+
+vndemo 0905:
+Intellifiber: la CG trouve assez vite la valeur finale mais gros plateau à la fin, la LG bound met 15 ans à monter. CPLEX met du temps à trouver de bonnes sols, et très mauvaise borne, aucune coupe.
+
+Experimentations:
+
+                    Bandcon     Biznet      DFN         GEANT       Hibernia        INS         Integra     Intellifiber    Valleynet
+
+Reseaux:
+    |V|             21          29          58          40          55              33          27          73              39
+    |E|             56          66          174         122         162             82          72          190             102
+    Type
+
+INT10   
+    Relax Beg       27          27          27          27          27              27          27          27              27
+    Relax end       31.2        31.9        27          27          27              27          27          27              27
+    Int             37          42          35          32          38              37          37          66              36
+    Time            10          10          10          10          10              10          10          10              10
+INT100
+    Relax Beg       27          27          27          27          27              27          27          27              27
+    Relax end       37          37.6        30          32          28.1            30.2        35.8        27              32.5
+    Int             37          41          30          32          34              36          37          37              35
+    Time            14          100         43          46          100             100         100         100             100
+CG
+    Relax           33.19       35          29          29.4        30.2            32.8        32.45       30.5            29.9
+    LGB             33.19       35          28.8        29.4        30.2            32.8        32.45       30              29.9
+    Int             x           45          30          32          34              37          38          35              36
+    Time            18          27          160         55          115             40          24          250             38
+    Iter            33          44          100         63          78              55          41          100             57
+
+
+
+6 septembre:
+Petit test GUROBI VS CPLEX:
+
+                    Bandcon     Biznet      DFN         GEANT       Hibernia        INS         Integra     Intellifiber    Valleynet
+
+Reseaux:
+    |V|             21          29          58          40          55              33          27          73              39
+    |E|             56          66          174         122         162             82          72          190             102
+    Type
+
+CPLEX
+INT10   
+    Relax Beg       27          27          27          27          27              27          27          27              27
+    Relax end       31.2        31.9        27          27          27              27          27          27              27
+    Int             37          42          35          32          38              37          37          66              36
+    Time            10          10          10          10          10              10          10          10              10
+INT100
+    Relax Beg       27          27          27          27          27              27          27          27              27
+    Relax end       37          37.6        30          32          28.1            30.2        35.8        27              32.5
+    Int             37          41          30          32          34              36          37          37              35
+    Time            14          100         43          46          100             100         100         100             100
+
+GUROBI
+INT10   
+    Relax Beg       27          27          27          27          27              27          27          27              27
+    Relax end       27          28          27          27          27              27          27          27              27
+    Int             37          45          39          36          75              41          38          64              37
+    Time            10          10          10          10          10              10          10          10              10
+INT100
+    Relax Beg       27          27          27          27          27              27          27          27              27
+    Relax end       35          36          27          27          27              31          32          27              28
+    Int             35          42          30          33          33              36          37          35              35
+    Time            43          100         100         100         100             100         100         100             100
+
+Bon bah clairement CPLEX > Gurobi, pas d'énormément mais bonne marge quand même
