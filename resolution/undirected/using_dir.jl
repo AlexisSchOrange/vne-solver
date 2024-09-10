@@ -1,5 +1,6 @@
 includet("../../utils/import_utils.jl")
 includet("../directed/compact/compact_formulation.jl")
+includet("../directed/vndecompo/vn_decompo.jl")
 
 
 function solve_compact(instance, time_solver = 30, silent = false)
@@ -24,13 +25,27 @@ function solve_compact(instance, time_solver = 30, silent = false)
 
     mappings_undir = make_solution_undir(instance, mappings_dir)
 
-    println("Mappings dir : " * string(mappings_dir))
-    println("Mappings undir : " * string(mappings_undir))
+    #println("Mappings dir : " * string(mappings_dir))
+    #println("Mappings undir : " * string(mappings_undir))
 
     # get correct solution
 
     return mappings_undir
 end
+
+
+function solve_vndecompo_colge(instance, node_partitionning)
+
+    # Construct directed instance
+    instance_dir = get_directed_instance(instance)
+    println("Instance directed constructed, starting colge...")
+    
+    mappings = vn_decompo(instance_dir, node_partitionning)
+
+
+
+end
+
 
 
 function get_directed_instance(instance)

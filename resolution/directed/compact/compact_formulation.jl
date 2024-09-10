@@ -15,6 +15,7 @@ function set_up_compact_model(instance, one_to_one = false, departure_cst = fals
 
     #### Model
     model = Model(CPLEX.Optimizer)
+    set_optimizer_attribute(model, "CPXPARAM_MIP_Strategy_VariableSelect", 0)
 
     ### Variables
     x_variables = @variable(model, x[v_network in instance.v_networks, vertices(v_network), vertices(instance.s_network)], binary=true);

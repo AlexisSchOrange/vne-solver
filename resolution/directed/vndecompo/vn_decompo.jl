@@ -70,7 +70,7 @@ function my_induced_subgraph(meta_graph::MetaGraph, selector, name)
         Int,
         Dict,
         Dict,
-        name
+        Dict(:name => name, :type => meta_graph[][:type], :directed => true)
     )
 
     for node in vertices(induced_graph)
@@ -234,7 +234,7 @@ function solve_integer_with_forbidden_nodes(instance, forbidden_nodes)
             end
             edge_routing[v_edge] = order_path(instance.s_network, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 
         end
-        m = MappingClassic(v_network, instance.s_network, node_placement, edge_routing)
+        m = Mapping(v_network, instance.s_network, node_placement, edge_routing)
         push!(mappings, m)
     end
 
@@ -277,7 +277,7 @@ function set_up_master_problem(instance, vn_decompos)
         binary=true);
     
     ### Objective
-    connecting_cost = @expression(model, sum( instance.s_network[src(s_edge), dst(s_edge)][:cost] * v_network[src(v_edge), dst(v_edge)][:dem] * y[v_network, v_edge, s_edge] / 2
+    connecting_cost = @expression(model, sum( instance.s_network[src(s_edge), dst(s_edge)][:cost] * v_network[src(v_edge), dst(v_edge)][:dem] * y[v_network, v_edge, s_edge]
         for v_network in instance.v_networks for v_edge in vn_decompos[v_network].connecting_edges for s_edge in edges(instance.s_network) ))
     
     @objective(model, Min, connecting_cost);
@@ -636,7 +636,7 @@ function update_solve_pricer(instance, pricer, dual_costs)
         end
         edge_routing[v_edge] = order_path(pricer.s_network, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 
     end
-    mapping = MappingClassic(subgraph, instance.s_network, node_placement, edge_routing)
+    mapping = Mapping(subgraph, instance.s_network, node_placement, edge_routing)
     
     dual_value = objective_value(model)
         
@@ -665,6 +665,7 @@ function vn_decompo(instance, node_partitionning)
             for i_node in 1:length(nodes)
                 node_assignment[nodes[i_node]] = [subgraph, i_node]
             end
+            print(subgraph)
             push!(subgraphs, subgraph)
         end
 
@@ -682,7 +683,6 @@ function vn_decompo(instance, node_partitionning)
         vn_decompos[instance.v_networks[i_vn]] = NetworkDecomposition(node_partitionning[i_vn], subgraphs, node_assignment, connecting_edges, mappings)
 
     end
-
 
     master_problem = set_up_master_problem(instance, vn_decompos)
     print("Master problem set... ")
