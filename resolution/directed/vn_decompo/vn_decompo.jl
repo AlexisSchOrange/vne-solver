@@ -694,6 +694,8 @@ function vn_decompo(instance, node_partitionning)
             for mapping in vn_decompos[v_network].mappings[subgraph]
                 add_column(master_problem, instance, v_network, subgraph, mapping)
                 nb_columns += 1
+                println("Column of price $(mapping.node_placement_cost + mapping.edge_routing_cost)")
+
             end
         end
     end

@@ -110,3 +110,9 @@ INT100
     Time            43          100         100         100         100             100         100         100             100
 
 Bon bah clairement CPLEX > Gurobi, pas d'énormément mais bonne marge quand même
+
+
+12 novembre
+Test du branching à ma sauce. Pour l'instant ça donne rien... A voir si je me suis pas gouré quelque part dans la formulation (à priori non ?)
+Comme pour CPLEX, les pseudos reduced costs marchent bien mieux
+Il faut quand même que je me fasse un vrai jeu d'instance sur les réseaux virtuels... Semaine pro !

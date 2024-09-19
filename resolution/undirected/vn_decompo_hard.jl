@@ -1,48 +1,19 @@
+using Revise
+
+using Graphs, MetaGraphsNext
+
 includet("../../utils/import_utils.jl")
-includet("../directed/compact/compact_formulation.jl")
-includet("../directed/vn_decompo/vn_decompo.jl")
+includet("../directed/vn_decompo_full/VNDecompoFull.jl")
 
+using .NetworkDecompositionFull
 
-function solve_undir_compact_dir(instance, time_solver = 30, silent = false)
-    # Construct directed instance
-    instance_dir = get_directed_instance(instance)
-
-    # solve 
-    # problem = set_up_compact_model_furobi(instance_dir, true, true, true)
-    problem = set_up_compact_model(instance_dir, true, true, true)
-    print("Starting solving... ")
-    set_time_limit_sec(problem.model, time_solver)
-    
-    if silent
-        set_silent(problem.model)
-    end
-    optimize!(problem.model)
-    println("done. Solving state: " * string(termination_status(problem.model)) * ", obj value: " * 
-            string(objective_value(problem.model)) * ", bound value: " * string(objective_bound(problem.model)))
-
-    # Get the solution
-    x_values = value.(problem.model[:x])
-    y_values = value.(problem.model[:y])
-    mappings_dir = get_solution(instance_dir, x_values, y_values)
-
-    mappings_undir = make_solution_undir(instance, mappings_dir)
-
-    #println("Mappings dir : " * string(mappings_dir))
-    #println("Mappings undir : " * string(mappings_undir))
-
-    # get correct solution
-
-    return mappings_undir
-end
-
-
-function solve_undir_vndecompo_colge(instance, node_partitionning)
+function solve_undir_vndecompo_colge_hard(instance, node_partitionning)
 
     # Construct directed instance
     instance_dir = get_directed_instance(instance)
     println("Instance directed constructed, starting colge...")
     
-    mappings = vn_decompo(instance_dir, node_partitionning)
+    mappings = solve_dir_vn_decompo(instance_dir, node_partitionning)
 
 
 

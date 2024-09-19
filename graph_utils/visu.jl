@@ -29,9 +29,9 @@ function print_graph(mg)
     end
     print("\nEdges:")
     for edge in edges(mg)
-        print("\nEdge " * string(edge))
+        println("\nEdge " * string(edge))
         for k in keys(mg[src(edge), dst(edge)])
-            print(" with $k : $(mg[src(edge), dst(edge)][k])" )
+            print(" with " * string(k) * ": " * string(mg[src(edge), dst(edge)][k]))
         end
     end
 end

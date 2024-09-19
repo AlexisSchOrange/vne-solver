@@ -1,6 +1,5 @@
 using Graphs, MetaGraphsNext
-
-
+include("visu.jl")
 
 function Base.show(
     io::IO, meta_graph::MetaGraph{<:Any,BaseGraph,Label,VertexData,EdgeData}
@@ -14,7 +13,7 @@ end
 
 
 # Only for directed graphs !
-function my_induced_subgraph(meta_graph, selector, name)
+function my_induced_subgraph(meta_graph::MetaGraph, selector, name)
     induced_graph, osef = induced_subgraph(meta_graph.graph, selector)
 
     induced_metagraph = MetaGraph(
