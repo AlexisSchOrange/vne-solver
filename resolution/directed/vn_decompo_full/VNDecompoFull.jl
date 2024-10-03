@@ -20,6 +20,7 @@ struct NetworkDecomposition
     v_nodes_master
     v_nodes_accross_subgraph
     v_edges_master
+    v_edges_accross_subgraph
 end
 
 struct Subgraph
@@ -50,9 +51,18 @@ function solve_dir_vn_decompo(instance, v_node_partitionning)
         println("For $v_network, there is: 
             $(length(vn_decompos[v_network].subgraphs)) subgraphs, 
             $(length(vn_decompos[v_network].v_nodes_accross_subgraph)) nodes in several subgraphs,
+            $(length(vn_decompos[v_network].v_edges_accross_subgraph)) edges accross several subgraphs,
             $(length(vn_decompos[v_network].v_nodes_master)) nodes in no subgraph,
             $(length(vn_decompos[v_network].v_edges_master)) edges in no subgraph")
+        
+        if length(vn_decompos[v_network].v_edges_accross_subgraph) > 0
+            println("WAIT! Edges accross subgraph. This is not supported yet.")
+            return 0
+        end
     end
+
+
+
 
     master_problem = set_up_master_problem(instance, vn_decompos)
     print("Master problem set... ")
@@ -89,7 +99,7 @@ function solve_dir_vn_decompo(instance, v_node_partitionning)
     best_LG = -100000
     unrelax = nothing
     print("\nStarting column generation: \n")
-    while keep_on && nb_iter < 100
+    while keep_on && nb_iter < 300
 
         print("Iter " * string(nb_iter))
         if nb_iter > 0
@@ -108,7 +118,7 @@ function solve_dir_vn_decompo(instance, v_node_partitionning)
         print(", CG value : " * string( floor(objective_value(master_problem.model)* 1000) / 1000) )
         total_subpb_obj = 0
         for v_network in instance.v_networks
-            for subgraph in vn_decompos[v_network].subgraphs
+            for (i_subgraph, subgraph) in enumerate(vn_decompos[v_network].subgraphs)
                 column, obj_value = update_solve_pricer(instance, pricers[v_network][subgraph], dual_costs)
                 total_subpb_obj += obj_value
                 if obj_value < -0.0001
@@ -122,7 +132,7 @@ function solve_dir_vn_decompo(instance, v_node_partitionning)
         time3 = time()
         
 
-        #= Calculating LG bound
+        #Calculating LG bound
         total_dual_value = 0
         for v_network in instance.v_networks
             for subgraph in vn_decompos[v_network].subgraphs
@@ -140,7 +150,7 @@ function solve_dir_vn_decompo(instance, v_node_partitionning)
             best_LG = LG_value
         end
         print(", Lagrangian Bound: " * string(floor(best_LG * 1000 ) / 1000 ))
-        =#
+        
 
         print(", Nb Columns: " * string(nb_columns))
         time_master += time2 - time1
@@ -159,18 +169,19 @@ function solve_dir_vn_decompo(instance, v_node_partitionning)
 
     println("________________ \nCG finished\nFinal value: " * string(objective_value(master_problem.model)))
     println("Time in MP: " * string(time_master) * ", time in SP: " * string(time_subproblems))
-    lambda_values = value.(master_problem.model[:lambda])
     x_values = value.(master_problem.model[:x])
     y_values = value.(master_problem.model[:y])
 
+    
     mappings = []
+    #=
     for v_network in instance.v_networks
         mapping_selec = []
         for subgraph in vn_decompos[v_network].subgraphs
             subgraph_map = Dict()
-            for mapping in vn_decompos[v_network].mappings[subgraph]
-                if value.(master_problem.lambdas[v_network][subgraph][mapping]) > 0.01
-                    subgraph_map[mapping] = value.(master_problem.lambdas[v_network][subgraph][mapping])
+            for column in subgraph.columns
+                if value.(master_problem.lambdas[v_network][subgraph][column]) > 0.01
+                    subgraph_map[columns.mapping] = value.(master_problem.lambdas[v_network][subgraph][column])
                 end
             end
             push!(mapping_selec, subgraph_map)
@@ -190,7 +201,7 @@ function solve_dir_vn_decompo(instance, v_node_partitionning)
         mapping = MappingDecompoFrac(v_network, instance.s_network, mapping_selec, edge_routing);
         push!(mappings, mapping)
     end
-
+    =#
 
     ####### RESOLUTION ENTIERE
     unrelax()
@@ -229,8 +240,8 @@ function set_up_decompo(instance, node_partitionning)
 
         # finding out the master virtual edges
         # for now there should not be a virtual edges on several subgraphs
-        v_edge_master = []    
-        for v_edge in edges(instance.v_networks[1])
+        v_edge_master = [] 
+        for v_edge in edges(vn)
             in_master = true
             for subgraph_src in keys(node_assignment[src(v_edge)])
                 for subgraph_dst in keys(node_assignment[dst(v_edge)])
@@ -244,10 +255,26 @@ function set_up_decompo(instance, node_partitionning)
             end
         end
 
+        v_edges_accross_subgraph = []
+        for v_edge in edges(vn)
+            # Get the source and destination nodes of the edge
+            src_subgraphs = keys(node_assignment[src(v_edge)])  # Subgraphs of the source node
+            dst_subgraphs = keys(node_assignment[dst(v_edge)])  # Subgraphs of the destination node
+            
+            # Find the common subgraphs between source and destination nodes
+            common_subgraphs = intersect(Set(src_subgraphs), Set(dst_subgraphs))
+            
+            # If there are at least 2 common subgraphs, the edge is in two subgraphs
+            if length(common_subgraphs) >= 2
+                push!(v_edges_accross_subgraph, v_edge)
+            end
+        end
+
+
         # finding out the master virtual nodes and nodes accross several vn
         v_nodes_in_several_subgraphs = []
         v_node_master = []
-        for v_node in vertices(instance.v_networks[i_vn])
+        for v_node in vertices(vn)
             if length(node_assignment[v_node]) == 0
                 push!(v_node_master, v_node)
             end
@@ -265,8 +292,8 @@ function set_up_decompo(instance, node_partitionning)
             end
         end
 
-
-        vn_decompos[vn] = NetworkDecomposition(subgraphs, node_assignment, v_node_master, v_nodes_in_several_subgraphs, v_edge_master)
+        # SIGNALER SI EDGE IN MULTI 
+        vn_decompos[vn] = NetworkDecomposition(subgraphs, node_assignment, v_node_master, v_nodes_in_several_subgraphs, v_edge_master, v_edges_accross_subgraph)
 
     end
 
@@ -283,6 +310,7 @@ struct MasterProblem
     instance
     model
     vn_decompos
+    lambdas
 end
 
 
@@ -325,6 +353,14 @@ function set_up_master_problem(instance, vn_decompos)
         v_edge in vn_decompos[v_network].v_edges_master, 
         s_edge in edges(instance.s_network)], 
         binary=true);
+    
+    lambdas = Dict()
+    for v_network in instance.v_networks
+        lambdas[v_network] = Dict()
+        for subgraph in vn_decompos[v_network].subgraphs
+            lambdas[v_network][subgraph] = Dict()
+        end
+    end
     
     
 
@@ -390,8 +426,9 @@ function set_up_master_problem(instance, vn_decompos)
     @constraint(
         model, 
         departure[v_network in instance.v_networks, v_edge in vn_decompos[v_network].v_edges_master, s_node in vertices(instance.s_network)],
-        sum(y[v_network, v_edge, s_edge] for s_edge in get_out_edges(instance.s_network, s_node)) >=
-        0
+        0 
+        <=
+        sum(y[v_network, v_edge, s_edge] for s_edge in get_out_edges(instance.s_network, s_node))
     )
 
     # Adding the master x variable to the two constraints
@@ -400,7 +437,7 @@ function set_up_master_problem(instance, vn_decompos)
             if src(v_edge) ∈ vn_decompos[v_network].v_nodes_master
                 for s_node in vertices(instance.s_network)
                     set_normalized_coefficient(model[:flow_conservation][v_network, v_edge, s_node], x[v_network, src(v_edge), s_node], 1)
-                    set_normalized_coefficient(model[:departure][v_network, v_edge, s_node], x[v_network, src(v_edge), s_node], -1)
+                    set_normalized_coefficient(model[:departure][v_network, v_edge, s_node], x[v_network, src(v_edge), s_node], 1)
                 end
             elseif dst(v_edge) ∈ vn_decompos[v_network].v_nodes_master
                 for s_node in vertices(instance.s_network)
@@ -425,11 +462,20 @@ function set_up_master_problem(instance, vn_decompos)
             v_node in vn_decompos[v_network].v_nodes_accross_subgraph, 
             s_node in vertices(instance.s_network), 
             subgraph in keys(vn_decompos[v_network].v_nodes_assignment[v_node])],
-        x_splitted[v_network, v_node, s_node]
-        ==
         0
+        ==
+        x_splitted[v_network, v_node, s_node]
     )
 
+    #=
+    @constraint(
+        model,
+        [v_network in instance.v_networks, 
+        v_node in vn_decompos[v_network].v_nodes_accross_subgraph, 
+        s_node in vertices(instance.s_network)],
+        sum(x_splitted[v_network, v_node, s_node] for s_node in vertices(instance.s_network)) == 1
+    )
+    =#
 
 
     ## Additional constraints : Undirected edges, thus the value both way is the same
@@ -445,14 +491,14 @@ function set_up_master_problem(instance, vn_decompos)
         end
     end
 
-    return MasterProblem(instance, model, vn_decompos)
+    return MasterProblem(instance, model, vn_decompos, lambdas)
 end
 
 
 function add_column(master_problem, instance, v_network, subgraph, column)
 
     lambda = @variable(master_problem.model, binary=true);
-
+    master_problem.lambdas[v_network][subgraph][column] = lambda
     set_objective_coefficient(master_problem.model, lambda, column.cost)
 
     # convexity
@@ -521,7 +567,7 @@ function add_column(master_problem, instance, v_network, subgraph, column)
             set_normalized_coefficient(
                 master_problem.model[:departure][v_network, v_edge, column.mapping.node_placement[v_node_in_subgraph]], 
                 lambda, 
-                -1*subgraph.nodes_cost_coeff[v_node_in_subgraph] )
+                1*subgraph.nodes_cost_coeff[v_node_in_subgraph] )
 
         end
     end
@@ -535,7 +581,7 @@ function add_column(master_problem, instance, v_network, subgraph, column)
             set_normalized_coefficient(
                 master_problem.model[:splitting][v_network, v_node_in_original_graph, column.mapping.node_placement[v_node], subgraph], 
                 lambda, 
-                -1)
+                1)
 
         end
     end
@@ -740,40 +786,58 @@ function update_solve_pricer(instance, pricer, dual_costs)
     for s_node in vertices(pricer.s_network)
         for connecting_edge in vn_decompos[pricer.v_network].v_edges_master
             if subgraph ∈ keys(vn_decompos[pricer.v_network].v_nodes_assignment[src(connecting_edge)])
+                v_node_subgraph = vn_decompos[pricer.v_network].v_nodes_assignment[src(connecting_edge)][subgraph]
                 add_to_expression!(
                     flow_conservation_cost, 
-                    -dual_costs.flow_conservation[pricer.v_network][connecting_edge][s_node], 
+                    -dual_costs.flow_conservation[pricer.v_network][connecting_edge][s_node] * subgraph.nodes_cost_coeff[v_node_subgraph], 
                     model[:x][vn_decompos[pricer.v_network].v_nodes_assignment[src(connecting_edge)][subgraph], s_node])
             end
             if subgraph ∈ keys(vn_decompos[pricer.v_network].v_nodes_assignment[dst(connecting_edge)])
+                v_node_subgraph = vn_decompos[pricer.v_network].v_nodes_assignment[dst(connecting_edge)][subgraph]
                 add_to_expression!(
                     flow_conservation_cost, 
-                    +dual_costs.flow_conservation[pricer.v_network][connecting_edge][s_node], 
+                    +dual_costs.flow_conservation[pricer.v_network][connecting_edge][s_node] * subgraph.nodes_cost_coeff[v_node_subgraph], 
                     model[:x][vn_decompos[pricer.v_network].v_nodes_assignment[dst(connecting_edge)][subgraph], s_node])
             end
         end
     end
 
     # splitting
-
-
+    splitting_costs = AffExpr(0.)
+    for v_node in vn_decompos[pricer.v_network].v_nodes_accross_subgraph
+        if subgraph in keys(vn_decompos[pricer.v_network].v_nodes_assignment[v_node])
+            v_node_subgraph = vn_decompos[pricer.v_network].v_nodes_assignment[v_node][subgraph]
+            for s_node in vertices(pricer.s_network)
+                add_to_expression!(
+                    splitting_costs,
+                    -dual_costs.splitting[pricer.v_network][v_node][s_node][subgraph],
+                    model[:x][v_node_subgraph, s_node]
+                )
+            end
+        end
+    end
 
     # departure !
     departure_costs = AffExpr(0.)
     for s_node in vertices(pricer.s_network)
         for connecting_edge in vn_decompos[pricer.v_network].v_edges_master
             if subgraph ∈ keys(vn_decompos[pricer.v_network].v_nodes_assignment[src(connecting_edge)])
+                v_node_subgraph = vn_decompos[pricer.v_network].v_nodes_assignment[src(connecting_edge)][subgraph]
                 add_to_expression!(
                     departure_costs, 
-                    dual_costs.departure[pricer.v_network][connecting_edge][s_node], 
-                    model[:x][vn_decompos[pricer.v_network].v_nodes_assignment[src(connecting_edge)][subgraph],
-                    s_node])
+                    -dual_costs.departure[pricer.v_network][connecting_edge][s_node] * subgraph.nodes_cost_coeff[v_node_subgraph], 
+                    model[:x][v_node_subgraph,s_node])
             end
         end
     end
 
 
-    @objective(model, Min, -dual_costs.convexity[pricer.v_network][subgraph] + placement_cost + routing_cost + flow_conservation_cost + departure_costs);
+    @objective(model, Min, 
+            -dual_costs.convexity[pricer.v_network][subgraph]
+            + placement_cost + routing_cost 
+            + flow_conservation_cost 
+            + departure_costs
+            + splitting_costs);
 
 
     set_silent(model)
@@ -857,6 +921,7 @@ function get_initial_set_of_columns(instance, vn_decompos)
                 end
             end
             push!(subgraph.columns, column);
+            print(column.mapping)
         end
     end
 end

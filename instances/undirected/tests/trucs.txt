@@ -72,8 +72,18 @@ CG
     Int             x           45          30          32          34              37          38          35              36
     Time            18          27          160         55          115             40          24          250             38
     Iter            33          44          100         63          78              55          41          100             57
-
-
+CG+
+    Relax           
+    LGB             
+    Int             
+    Time            
+    Iter    
+CG++
+    Relax           33.89       36.2        2           29.7        30.5            33.7
+    LGB             33.89       36.2        x           29.7        30.5            33.7
+    Int             52          55          x           41          53              51
+    Time            27          41          x           85          160             40
+    Iter            44          54          x           66          72              49
 
 6 septembre:
 Petit test GUROBI VS CPLEX:
@@ -116,3 +126,46 @@ Bon bah clairement CPLEX > Gurobi, pas d'énormément mais bonne marge quand mê
 Test du branching à ma sauce. Pour l'instant ça donne rien... A voir si je me suis pas gouré quelque part dans la formulation (à priori non ?)
 Comme pour CPLEX, les pseudos reduced costs marchent bien mieux
 Il faut quand même que je me fasse un vrai jeu d'instance sur les réseaux virtuels... Semaine pro !
+
+
+23 septembre
+Fini la décompo croisée, ça donne des petits résultats... A tester sur des grosses instances maintenant.
+Sinon j'ai tenté d'ajouter la contrainte sum x == 1, ça ralenti carrément la résolution, bizarre non ?
+
+Test avec 5K4 sur GIANT:
+CPLEX, après 5min, est à 35.6 (ne décolle que à 4min des 35). Normal, pour cette instance on a un max de symetries.
+Il faut arréter de se foutre du monde et faire une meilleure instance....
+CG normale: 43 en 50 secondes !
+CG+: nous donne immédiatement une borne de 40. WTF ? 43.3. Gain minime sur la relaxation...
+Il y a pas bcp plus d'itérations sur CG+, mais les sous pb prennent plus de temps (notamment celui du cycle à priori, vu à quel point on galère...)
+!!!!!!!! Quand j'enlève des noeuds, que se passe t'il ? Est ce bien codé ? (parce que ça fait des trucs bizarre là fdp..)
+
+
+
+
+### 30 septembre
+Implémentation de la contrainte liée au sous graphe.
+Ca améliore bien la borne, rien à dire... On est très proche de ce que j'ai avec la décompo
+MAIS 
+Déjà au final y'a pas de cuts, donc ça va juste retarder le moment où la borne va commencer à augmenter via le branchement.
+Branch-and-cut avec juste cut, quel intérêt ça a au final ? Bon il y a quand même besoin de bcp de moins de noeud pour commencer à faire décoller la borne inf. Surement parce que ça permet de prune énormément de noeuds
+ET (et c'est chelou)
+ça ralenti également énormément CPLEX, qui fait bcp moins de noeud. (1800 au lieu de 3500...). Peut être lié au pruning important ?
+SI PAS DE DEPARTURE CST: Enormément de cuts 0-half, on part de 0 mais on augmente vite. IL RESTE INFINI TEMPS AU NOEUD 0 AUSSI ??? Bon bah c'est affreux
+(confirmé sur Biznet)
+Bon, donc avoir une bonne valeur initiale de borne n'est pas assez, il me faut également des coupes et surement un meilleur branchement...
+Par contre sur Biznet, je suis tellement plus rapide dans le branchement que ça me permet d'avoir une meilleure borne au final... Pk CPLEX est si lent ?
+Au final, sur Biznet, j'ai l'optimal !
+
+
+
+### 2 octobre
+
+# test 1: sur cycles
+Avec GEANT. Pour cycle de moins de 25, c'est fait en un claquement de doigt.  (symétries !)
+Pour 35, plus dur, des zerohalf cuts, mais seulement au rootnode, pour passer de 36 à 37.5. Semble plateau longtemps...
+Poue 3x12, bcp de symétries... bcp de zerohalf, plutot bonne sol, mais plateau apres le rootnode.
+
+# test 2: trees
+BinTree5: assez dur, 60sec. Mais trouve l'optimum direct, juste ça plateau 15 ans... Pas de cuts, juste branch-and-bound..
+Encore des symétries tho

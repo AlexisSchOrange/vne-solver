@@ -206,7 +206,14 @@ function set_up_compact_model(instance, one_to_one = false, departure_cst = fals
     model = Model(CPLEX.Optimizer)
     #set_optimizer_attribute(model, "CPXPARAM_MIP_Strategy_VariableSelect", 0)
     set_optimizer_attribute(model, "CPXPARAM_MIP_Display", 2)
-    set_optimizer_attribute(model, "CPXPARAM_MIP_Interval", 50)
+    #set_optimizer_attribute(model, "CPXPARAM_MIP_Interval", 50)
+
+    # CUTS
+    set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_Nodecuts", 0)
+    #set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_ZeroHalfCut", -1)
+    #set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_LiftProj", -1)
+    #set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_Gomory", -1)
+    #set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_GUBCovers", 2)
 
     ### Variables
     x_variables = @variable(model, x[v_network in instance.v_networks, vertices(v_network), vertices(instance.s_network)], binary=true);
@@ -415,3 +422,55 @@ function solve_directed_compact_fractional(instance, one_to_one = false, departu
     return mappings
 end
 
+
+
+# Ne marche qu'en one to one pour l'instant...
+function solve_directed_compact_with_subgraphs_constraints(instance, node_partitionning, time_solver = 30)
+    
+    # Set up the problem
+    problem = set_up_compact_model(instance, true, true)
+
+    # Subgraph stuff....
+    for (i_vn, vn) in enumerate(instance.v_networks)
+        println("For vn$i_vn...")
+        for (i_subgraph, v_nodes) in enumerate(node_partitionning[i_vn])
+            print("For subgraph $i_subgraph... ")
+            subgraph = my_induced_subgraph(vn, v_nodes, "subgraph_$i_subgraph")
+            # Résolution
+            subinstance = InstanceVNE([subgraph], instance.s_network)
+            mapping = solve_directed_compact_integer(subinstance, true, true, 30, true)[1]
+            # get number of edges
+            min_routing = 0
+            for v_edge in edges(subgraph)
+                min_routing += length(mapping.edge_routing[v_edge].edges)
+            end
+            print("Min edges: $min_routing instead of $(length(edges(subgraph)))\n")
+    
+            # adding the constraints
+            @constraint(problem.model,
+                sum( problem.model[:y][vn, get_edge(vn, v_nodes[src(v_edge)], v_nodes[dst(v_edge)]), s_edge] for v_edge in edges(subgraph) for s_edge in edges(instance.s_network))
+                >=
+                min_routing)
+            
+        end
+
+    end 
+
+
+
+
+
+    # Solving
+    print("Starting solving... ")
+    set_time_limit_sec(problem.model, time_solver)
+    optimize!(problem.model)
+    println("done. Solving state: " * string(termination_status(problem.model)) * ", obj value: " * string(objective_value(problem.model)) * ", bound value: " * string(objective_bound(problem.model)))
+
+    # Get the solution
+    x_values = value.(problem.model[:x])
+    y_values = value.(problem.model[:y])
+    mappings = get_solution(instance, x_values, y_values)
+    
+    return mappings
+
+end

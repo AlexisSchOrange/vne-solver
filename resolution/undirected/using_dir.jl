@@ -36,6 +36,22 @@ function solve_undir_compact_dir(instance, time_solver = 30, silent = false)
 end
 
 
+
+function solve_undir_compact_fractional_dir(instance, time_solver = 30, silent = false)
+    # Construct directed instance
+    instance_dir = get_directed_instance(instance)
+
+    # solve 
+    # problem = set_up_compact_model_furobi(instance_dir, true, true, true)
+    mappings = solve_directed_compact_fractional(instance_dir, true, true)
+    for mapping in mappings
+        println(mapping)
+    end
+    return mappings_undir
+end
+
+
+
 function solve_undir_vndecompo_colge(instance, node_partitionning)
 
     # Construct directed instance
@@ -48,6 +64,16 @@ function solve_undir_vndecompo_colge(instance, node_partitionning)
 
 end
 
+
+
+function solve_undir_compact_subgraphcst(instance, node_partitionning)
+    
+    instance_dir = get_directed_instance(instance)
+
+    mappings = solve_directed_compact_with_subgraphs_constraints(instance_dir, node_partitionning)
+
+    print(mappings)
+end
 
 
 function get_directed_instance(instance)

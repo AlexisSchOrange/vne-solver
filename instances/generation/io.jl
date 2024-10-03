@@ -33,11 +33,8 @@ function write_network_to_json(mg)
     # about the graph:
     for k in keys(mg[])
         formatted_json_str *= "\t\"" * string(k) * "\": "
-        if isa(mg[][k], String)
-            formatted_json_str *= "\"" * string(mg[][k]) * "\""
-        else
-            formatted_json *= string(mg[][k])
-        end
+        formatted_json_str *= "\"" * string(mg[][k]) * "\""
+
         formatted_json_str *= ",\n"
     end
 
