@@ -1,6 +1,10 @@
 includet("../../utils/import_utils.jl")
 includet("../directed/compact/compact_formulation.jl")
 includet("../directed/vn_decompo/vn_decompo.jl")
+includet("../directed/cuts/cuts.jl")
+
+
+
 
 
 function solve_undir_compact_dir(instance, time_solver = 30, silent = false)
@@ -10,6 +14,9 @@ function solve_undir_compact_dir(instance, time_solver = 30, silent = false)
     # solve 
     # problem = set_up_compact_model_furobi(instance_dir, true, true, true)
     problem = set_up_compact_model(instance_dir, true, true, true)
+
+    #@constraint(problem.model, sum(problem.model[:y][v_network, v_edge, s_edge] for v_network in instance_dir.v_networks for v_edge in edges(v_network) for s_edge in edges(instance_dir.s_network)) >= 70)
+
     print("Starting solving... ")
     set_time_limit_sec(problem.model, time_solver)
     
@@ -34,6 +41,7 @@ function solve_undir_compact_dir(instance, time_solver = 30, silent = false)
 
     return mappings_undir
 end
+
 
 
 
@@ -66,11 +74,22 @@ end
 
 
 
-function solve_undir_compact_subgraphcst(instance, node_partitionning)
+function solve_undir_cuts_cycles(instance, cycles)
+    # Construct directed instance
+    instance_dir = get_directed_instance(instance)
+ 
+    solve_directed_cuts_cycles(instance_dir, cycles, true, true, 30, false)
+end
+
+
+
+
+
+function solve_undir_compact_subgraphcst(instance, node_partitionning, time_solving = 30)
     
     instance_dir = get_directed_instance(instance)
 
-    mappings = solve_directed_compact_with_subgraphs_constraints(instance_dir, node_partitionning)
+    mappings = solve_directed_compact_with_subgraphs_constraints(instance_dir, node_partitionning, time_solving)
 
     print(mappings)
 end

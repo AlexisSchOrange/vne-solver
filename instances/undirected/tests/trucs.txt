@@ -169,3 +169,10 @@ Poue 3x12, bcp de symétries... bcp de zerohalf, plutot bonne sol, mais plateau 
 # test 2: trees
 BinTree5: assez dur, 60sec. Mais trouve l'optimum direct, juste ça plateau 15 ans... Pas de cuts, juste branch-and-bound..
 Encore des symétries tho
+
+
+
+07/10
+Je teste les callback de cuts, c'est po facile...
+
+08/10

@@ -1,10 +1,103 @@
 
 using Polyhedra, CDDLib
-includet("utils/file_reader.jl")
-includet("utils/import_utils.jl")
-includet("resolution/directed/compact/compact_formulation.jl")
+includet("../utils/file_reader.jl")
+includet("../utils/import_utils.jl")
+includet("../resolution/directed/compact/compact_formulation.jl")
 
 
+
+
+function get_vrep_undir(instance)
+
+    instance_dir = get_directed_instance(instance)
+    problem = set_up_compact_model_gurobi(instance_dir, true, true, true)
+    model = problem.model
+    set_optimizer_attribute(model, "PoolSearchMode", 2)
+    set_optimizer_attribute(model, "PoolSolutions", 1000)
+
+
+    optimize!(model)
+    #solution_summary(model)
+    println("There are $(result_count(model)) solution in the model")
+    sols = Vector{Vector{Int64}}()
+    for i in 1:result_count(model)
+        cur_sol = Vector{Int64}()
+        for v_node in vertices(instance.v_networks[1])
+            for s_node in vertices(instance_dir.s_network)
+                push!(cur_sol, round.(value.(model[:x][instance_dir.v_networks[1], v_node, s_node]; result = i)))     
+            end
+        end
+
+        for v_edge in edges(instance.v_networks[1])
+            for s_edge in edges(instance_dir.s_network)
+                push!(cur_sol, round.(value.(model[:y][instance_dir.v_networks[1], v_edge, s_edge]; result = i)))     
+            end
+        end
+
+        push!(sols, cur_sol)
+    end
+
+    names = []
+    for v_node in vertices(instance.v_networks[1])
+        for s_node in vertices(instance.s_network)
+            push!(names, "x_" * string(v_node) * "_" * string(s_node))
+        end
+    end
+    
+    for v_edge in edges(instance.v_networks[1])
+        for s_edge in edges(instance_dir.s_network)
+            push!(names, "y_" * string(src(v_edge)) * string(dst(v_edge)) * "_" * string(src(s_edge)) * string(dst(s_edge)))
+        end
+    end
+
+    return sols, names
+end
+
+
+function get_vrep_dir(instance)
+
+    problem = set_up_compact_model_gurobi(instance, true, true, false)
+    model = problem.model
+    set_optimizer_attribute(model, "PoolSearchMode", 2)
+    set_optimizer_attribute(model, "PoolSolutions", 1000)
+
+
+    optimize!(model)
+    #solution_summary(model)
+    println("There are $(result_count(model)) solution in the model")
+    sols = Vector{Vector{Int64}}()
+    for i in 1:result_count(model)
+        cur_sol = Vector{Int64}()
+        for v_node in vertices(instance.v_networks[1])
+            for s_node in vertices(instance.s_network)
+                push!(cur_sol, round.(value.(model[:x][instance.v_networks[1], v_node, s_node]; result = i)))     
+            end
+        end
+
+        for v_edge in edges(instance.v_networks[1])
+            for s_edge in edges(instance.s_network)
+                push!(cur_sol, round.(value.(model[:y][instance.v_networks[1], v_edge, s_edge]; result = i)))     
+            end
+        end
+
+        push!(sols, cur_sol)
+    end
+
+    names = []
+    for v_node in vertices(instance.v_networks[1])
+        for s_node in vertices(instance.s_network)
+            push!(names, "x_" * string(v_node) * "_" * string(s_node))
+        end
+    end
+    
+    for v_edge in edges(instance.v_networks[1])
+        for s_edge in edges(instance.s_network)
+            push!(names, "y_" * string(src(v_edge)) * string(dst(v_edge)) * "_" * string(src(s_edge)) * string(dst(s_edge)))
+        end
+    end
+
+    return sols, names
+end
 
 
 
@@ -70,8 +163,98 @@ function get_v_rep_convexhull(instance, time_limit=100, sol_max=1000)
     end
 
     println("\n\nThere are " * string(N_results) * " solutions")
+
+
+    
     return(all_sols, names_variables)
 end
+
+
+
+# takes an instance (with one vr !), returns all the solutions (points) and the names of variables
+function get_v_rep_convexhull_undir(instance_undir, time_limit=100, sol_max=1000)
+
+    instance = get_directed_instance(instance_undir)
+
+    # builds the model and find all optimal points (a bit obscure in cplex, i found this online)
+    compact_model = set_up_compact_model(instance)
+    model = compact_model.model
+    #set_time_limit_sec(model, time_limit)
+
+    set_silent(model)
+    optimize!(model)
+    #set_optimizer_attribute(model, "CPX_PARAM_DISPLAY", 0)
+
+    set_optimizer_attribute(model, "CPX_PARAM_SOLNPOOLAGAP", 100000000.0)
+    set_optimizer_attribute(model, "CPX_PARAM_SOLNPOOLINTENSITY", 4)
+    set_optimizer_attribute(model, "CPX_PARAM_POPULATELIM", sol_max)
+    
+    backend_model = unsafe_backend(model);
+    env = backend_model.env;
+    lp = backend_model.lp;
+    
+    CPLEX.CPXpopulate(env, lp);
+    
+    N_results = CPLEX.CPXgetsolnpoolnumsolns(env, lp)
+    if N_results == sol_max
+        println("The number of solution max has been reached. Some solutions might not have been compute.")
+    end
+
+    # get correct names
+    v_network = instance.v_networks[1]
+    
+    names_variables = []
+    sols = []
+    for i in 1:N_results
+        push!(sols, [])
+    end
+
+    for v_node in vertices(v_network)
+        for s_node in vertices(instance.s_network)
+            name = "x_" * string(v_node) * "_" * string(s_node)
+            push!(names_variables, name)
+
+            col = CPLEX.column(backend_model, compact_model.x_variables[v_network, v_node, s_node].index)
+            println("col $col : " * name)
+            for (i_sol, sol) in enumerate(sols)
+                x = Ref{Cdouble}() 
+                CPLEX.CPXgetsolnpoolx(env, lp, i_sol, x, col, col)
+                if (x[]) > 0.5
+                    println("in sol $i_sol")
+                end
+                if (x[]) < - 0.5
+                    println(" WHAT THE FUUUUUUUUUCK")
+                end
+                push!(sol, convert.(Int64, round.(x)))
+
+            end
+        end
+    end
+    
+    for v_edge in edges(instance_undir.v_networks[1])
+        for s_edge in edges(instance_undir.s_network)
+            #check da stuff
+        end
+    end
+    
+
+    println("\n\nThere are " * string(N_results) * " solutions")
+
+    for (i_sol, sol) in enumerate(all_sols)
+        println("Printing sol $i_sol...")
+        for (i_var, val) in enumerate(sol)            
+            if val > 0.5
+                println("$(names_variables[i_var])")
+            end
+            
+        end
+    end
+
+    return(sols, names_variables)
+end
+
+
+
 
 
 function print_polytope(poly, names_variables)
@@ -209,7 +392,7 @@ end
 
 
 function do_everything(instance)
-    all_sols, names_variables = get_v_rep_convexhull(instance);
+    all_sols, names_variables = get_vrep_dir(instance);
     v_rep = vrep(all_sols);
     poly = polyhedron(v_rep, CDDLib.Library(:float));
     return poly, names_variables
@@ -225,9 +408,100 @@ function elimate_and_do_everything(poly_entry, names_variables, to_elim)
 end
 
 function do_everything_and_print(instance)
-    all_sols, names_variables = get_v_rep_convexhull(instance);
+    all_sols, names_variables = get_vrep_dir(instance);
     v_rep = vrep(all_sols);
     poly = polyhedron(v_rep, CDDLib.Library(:float));
     h_rep = hrep(poly);
     print_polytope(h_rep, names_variables);
 end
+
+
+
+function print_solutions(sols, names)
+
+    for (i_sol, sol) in enumerate(sols)
+        println("Solution num $(i_sol)")
+        for (i_var, value) in enumerate(sol)
+            if value > 0.5
+                println("$(names[i_var])")
+            end
+        end
+    end
+end
+
+
+function print_constraints(poly, instance)
+
+    hr = hrep(poly);
+
+    for h in hyperplanes(hr)
+        print("@constraint(model, ")
+        
+        i_var = 1
+        for (i_vn, v_network) in enumerate(instance.v_networks)
+            for v_node in vertices(v_network)
+                for s_node in vertices(instance.s_network)
+                    if (h.a[i_var] > 0.01)
+                        print("+ model[:x][instance.v_networks[$i_vn], $v_node, $s_node] ")
+                    elseif (h.a[i_var] < -0.01)
+                        print("- model[:x][instance.v_networks[$i_vn], $v_node, $s_node] ")
+                    end
+                    i_var += 1
+                end
+            end
+
+            for v_edge in edges(v_network)
+                for s_edge in edges(instance.s_network)
+                    if (h.a[i_var] > 0.01)
+                        print("+ model[:y][instance.v_networks[$i_vn], get_edge(instance.v_networks[$i_vn], $(src(v_edge)), $(dst(v_edge))), get_edge(instance.s_network, $(src(s_edge)), $(dst(s_edge)))] ")
+                    elseif (h.a[i_var] < -0.01)
+                        print("- model[:y][instance.v_networks[$i_vn], get_edge(instance.v_networks[$i_vn], $(src(v_edge)), $(dst(v_edge))), get_edge(instance.s_network, $(src(s_edge)), $(dst(s_edge)))] ")
+                    end
+                    i_var += 1
+                end
+            end
+            print(" = ")
+            print(floor(Int,h.β))
+            println(")")
+        end
+
+    end
+
+
+    for h in halfspaces(hr)
+        print("@constraint(model, ")
+        
+        i_var = 1
+        for (i_vn, v_network) in enumerate(instance.v_networks)
+            for v_node in vertices(v_network)
+                for s_node in vertices(instance.s_network)
+                    if (h.a[i_var] > 0.01)
+                        print("+ model[:x][instance.v_networks[$i_vn], $v_node, $s_node] ")
+                    elseif (h.a[i_var] < -0.01)
+                        print("- model[:x][instance.v_networks[$i_vn], $v_node, $s_node] ")
+                    end
+                    i_var += 1
+                end
+            end
+
+            for v_edge in edges(v_network)
+                for s_edge in edges(instance.s_network)
+                    if (h.a[i_var] > 0.01)
+                        print("+ model[:y][instance.v_networks[$i_vn], get_edge(instance.v_networks[$i_vn], $(src(v_edge)), $(dst(v_edge))), get_edge(instance.s_network, $(src(s_edge)), $(dst(s_edge)))] ")
+                    elseif (h.a[i_var] < -0.01)
+                        print("- model[:y][instance.v_networks[$i_vn], get_edge(instance.v_networks[$i_vn], $(src(v_edge)), $(dst(v_edge))), get_edge(instance.s_network, $(src(s_edge)), $(dst(s_edge)))] ")
+                    end
+                    i_var += 1
+                end
+            end
+            print(" ≤ ")
+            print(floor(Int,h.β))
+            println(")")
+        end
+
+    end
+
+
+
+end
+

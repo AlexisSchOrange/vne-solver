@@ -23,6 +23,9 @@ struct NetworkDecomposition
     v_edges_accross_subgraph
 end
 
+
+
+
 struct Subgraph
     graph
     nodes_of_main_graph
@@ -91,6 +94,7 @@ function solve_dir_vn_decompo(instance, v_node_partitionning)
 
 
     # GENERATION DE COLONNES !
+    nb_iter_max = 300
     set_silent(master_problem.model)
     time_master = 0
     time_subproblems = 0
@@ -99,7 +103,7 @@ function solve_dir_vn_decompo(instance, v_node_partitionning)
     best_LG = -100000
     unrelax = nothing
     print("\nStarting column generation: \n")
-    while keep_on && nb_iter < 300
+    while keep_on && nb_iter < nb_iter_max
 
         print("Iter " * string(nb_iter))
         if nb_iter > 0

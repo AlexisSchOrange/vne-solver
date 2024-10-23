@@ -18,15 +18,13 @@ function set_up_compact_model_gurobi(instance, one_to_one = false, departure_cst
 
     #### Model
     model = Model(Gurobi.Optimizer)
-    set_optimizer_attribute(model, "VarBranch", 3)
-    set_optimizer_attribute(model, "DisplayInterval", 1)
-    set_optimizer_attribute(model, "Seed", 0)
+    #set_optimizer_attribute(model, "VarBranch", 3)
+    #set_optimizer_attribute(model, "DisplayInterval", 1)
+    #set_optimizer_attribute(model, "Seed", 0)
 
     ### Variables
     x_variables = @variable(model, x[v_network in instance.v_networks, vertices(v_network), vertices(instance.s_network)], binary=true);
     y_variables = @variable(model, y[v_network in instance.v_networks, edges(v_network), edges(instance.s_network)], binary=true);
-
-
     
     
     # BRANCHING PRIORITY
@@ -81,7 +79,7 @@ function set_up_compact_model_gurobi(instance, one_to_one = false, departure_cst
     end 
 
 
-        ############ LA SHEESH CONTRAINTE SUPPLEMENTAIRE
+    ############ LA SHEESH CONTRAINTE SUPPLEMENTAIRE
     for v_network in instance.v_networks
         for v_node in v_node_central
             for part in partition_sn
@@ -199,9 +197,11 @@ end
 
 
 
-function set_up_compact_model(instance, one_to_one = false, departure_cst = false, symmetric = false)
-    print("Constructing compact model... ")
-
+function set_up_compact_model(instance, one_to_one = false, departure_cst = false, symmetric = false, silent = true)
+    
+    if !silent
+        print("Constructing compact model... ")
+    end
     #### Model
     model = Model(CPLEX.Optimizer)
     #set_optimizer_attribute(model, "CPXPARAM_MIP_Strategy_VariableSelect", 0)
@@ -209,7 +209,7 @@ function set_up_compact_model(instance, one_to_one = false, departure_cst = fals
     #set_optimizer_attribute(model, "CPXPARAM_MIP_Interval", 50)
 
     # CUTS
-    set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_Nodecuts", 0)
+    #set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_Nodecuts", 0)
     #set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_ZeroHalfCut", -1)
     #set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_LiftProj", -1)
     #set_optimizer_attribute(model, "CPXPARAM_MIP_Cuts_Gomory", -1)
@@ -295,9 +295,10 @@ function set_up_compact_model(instance, one_to_one = false, departure_cst = fals
                     for v_node in vertices(v_network)
                         for v_edge in get_out_edges(v_network, v_node)
                             @constraint(model, sum(y[v_network, v_edge, s_edge] for s_edge in get_out_edges(instance.s_network, s_node)) >= x[v_network, v_node, s_node])
+                            #@constraint(model, sum(y[v_network, v_edge, s_edge] for s_edge in get_out_edges(instance.s_network, s_node)) <= x[v_network, v_node, s_node] + 0.01)
                         end
                         for v_edge in get_in_edges(v_network, v_node)
-                            @constraint(model, sum(y[v_network, v_edge, s_edge] for s_edge in get_in_edges(instance.s_network, s_node)) >= x[v_network, v_node, s_node])
+                            #@constraint(model, sum(y[v_network, v_edge, s_edge] for s_edge in get_in_edges(instance.s_network, s_node)) >= x[v_network, v_node, s_node])
                         end
                     end
                 end
@@ -317,8 +318,9 @@ function set_up_compact_model(instance, one_to_one = false, departure_cst = fals
         end
     end
     
-    println("done.")
-
+    if !silent
+        println("done.")
+    end
     return Compact_Formulation(model, x_variables, y_variables)
 end
 
@@ -362,6 +364,7 @@ function solve_directed_compact_integer(instance, one_to_one = false, departure_
     # Set up the problem
     problem = set_up_compact_model(instance, one_to_one, departure_cst)
 
+
     # Solving
     print("Starting solving... ")
     set_time_limit_sec(problem.model, time_solver)
@@ -381,13 +384,26 @@ end
 
 
 
+
+
+
 function solve_directed_compact_fractional(instance, one_to_one = false, departure_cst = false, time_solver = 30, silent = true)
 
     # Set up the problem
     problem = set_up_compact_model(instance, one_to_one, departure_cst)
     relax_integrality(problem.model)
 
-    # Solving
+    #@constraint(problem.model, sum(problem.model[:y][v_network, v_edge, s_edge] for v_network in instance.v_networks for v_edge in edges(v_network) for s_edge in edges(instance.s_network)) >= 80 )
+    model = problem.model
+    #@constraint(model, + model[:x][instance.v_networks[1], 1, 2] - model[:x][instance.v_networks[1], 2, 2] + model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 2, 3)]  == 0)
+    #@constraint(model, - model[:x][instance.v_networks[1], 1, 1] + model[:x][instance.v_networks[1], 2, 1] + model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 3, 1)]  == 0)
+    #@constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 2)]  <= -1)
+    #@constraint(model, - model[:x][instance.v_networks[1], 1, 2] + model[:x][instance.v_networks[1], 2, 2] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 2, 3)]  == -1)
+    #@constraint(model, + model[:x][instance.v_networks[1], 1, 1] - model[:x][instance.v_networks[1], 2, 1] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 3, 1)]  == -1)
+    #@constraint(model, + model[:x][instance.v_networks[1], 2, 1] + model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)]  ≤ 1)
+    #@constraint(model, + model[:x][instance.v_networks[1], 1, 2] + model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)]  ≤ 1)
+    #@constraint(model, - model[:x][instance.v_networks[1], 1, 2] - model[:x][instance.v_networks[1], 2, 1] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)]  ≤ -1)
+    #@constraint(model, - model[:x][instance.v_networks[1], 1, 1] - model[:x][instance.v_networks[1], 2, 2] + model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)]  ≤ 0)    # Solving
     if silent
         set_silent(problem.model)
     end
@@ -408,13 +424,18 @@ function solve_directed_compact_fractional(instance, one_to_one = false, departu
             end
         end
         edge_routing = Dict()
+        total_val = 0
         for v_edge in edges(v_network)
             edge_routing[v_edge] = Dict()
+            val = 0
             for s_edge in edges(instance.s_network)
+                val += y_values[v_network, v_edge, s_edge]
                 edge_routing[v_edge][s_edge] = y_values[v_network, v_edge, s_edge]
             end
+            total_val += val
+            println("For edge $v_edge we have $val")
         end
-        
+        println("Total val : $total_val")
         m = MappingCompactFractional(v_network, instance.s_network, node_placement, edge_routing)
         push!(mappings, m)
     end
@@ -428,8 +449,9 @@ end
 function solve_directed_compact_with_subgraphs_constraints(instance, node_partitionning, time_solver = 30)
     
     # Set up the problem
-    problem = set_up_compact_model(instance, true, true)
+    problem = set_up_compact_model(instance, true, true, true)
 
+    
     # Subgraph stuff....
     for (i_vn, vn) in enumerate(instance.v_networks)
         println("For vn$i_vn...")
@@ -455,7 +477,7 @@ function solve_directed_compact_with_subgraphs_constraints(instance, node_partit
         end
 
     end 
-
+    
 
 
 
