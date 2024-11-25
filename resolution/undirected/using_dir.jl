@@ -1,7 +1,7 @@
 includet("../../utils/import_utils.jl")
 includet("../directed/compact/compact_formulation.jl")
 includet("../directed/vn_decompo/vn_decompo.jl")
-includet("../directed/cuts/cuts.jl")
+#includet("../directed/cuts/cuts.jl")
 
 
 
@@ -67,8 +67,9 @@ function solve_undir_vndecompo_colge(instance, node_partitionning)
     println("Instance directed constructed, starting colge...")
     
     mappings = vn_decompo(instance_dir, node_partitionning)
-
-
+    println("OKAY LET'S LOOK AT THE MAPPINGS: ")
+    #println(mappings[1])
+    
 
 end
 

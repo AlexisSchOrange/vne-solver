@@ -261,6 +261,246 @@ end
 
 
 
+### A better initialization: trying to put each vn a bit everywhere
+# does not work for overlapping decompo for now
+function get_initial_set_of_mappings_better(instance, vn_decompos)
+
+    println("YO LET'S COOK MORE COLUMNS")
+
+    nb_column_per_subgraph = 10
+
+    nb_s_nodes = length(vertices(instance.s_network))
+
+    #substrate_nodes = shuffle(L) # for random
+    substrate_nodes = 1:nb_s_nodes
+
+    # Compute the approximate size of each partition
+    base_size = div(nb_s_nodes, nb_column_per_subgraph)
+    extra = nb_s_nodes % nb_column_per_subgraph
+
+    # Partition the shuffled list into roughly equal parts
+    groups = []
+    start_idx = 1
+    for i in 1:nb_column_per_subgraph
+        # Distribute the remainder across the first few groups
+        group_size = base_size + (i <= extra ? 1 : 0)
+        end_idx = start_idx + group_size - 1
+        push!(groups, substrate_nodes[start_idx:end_idx])
+        start_idx = end_idx + 1
+    end
+
+    #println("groups: $groups")
+    # get the most central node
+    # assign it somewhere on the selected nodes.
+    # => nodes at random ? It would be better through some gentle clustering ?
+    # No need to be just one node, it should be much better if it has some choice. I think random would be good to begin with. 
+    # solve the plne, add the column.
+
+
+
+    for v_network in instance.v_networks
+        for subgraph in vn_decompos[v_network].subgraphs
+            current_instance = InstanceVNE([subgraph], instance.s_network)
+            println("Let's have fun !")
+            for group in groups
+                # the virtual node should be not too connected to make it easy ?
+                print(group)
+                placement_restriction = Dict()
+                placement_restriction[1] = group
+                # create the plne
+               
+
+                mapping = solve_integer_with_placement_restriction(current_instance, placement_restriction)
+                
+                if mapping !== nothing
+                    push!(vn_decompos[v_network].mappings[subgraph], mapping);
+                end
+            end
+        end
+    end
+
+end
+
+# Todo: use the base function...
+function solve_integer_with_placement_restriction(instance, placement_restriction)
+
+    print("En zarbi")
+    #### Model
+    model = Model(CPLEX.Optimizer)
+
+    set_attribute(model, "CPX_PARAM_EPINT", 1e-8)
+
+    ### Variables
+    @variable(model, x[v_network in instance.v_networks, vertices(v_network), vertices(instance.s_network)], binary=true);
+    @variable(model, y[v_network in instance.v_networks, edges(v_network), edges(instance.s_network)], binary=true);
+
+
+    ### Objective
+    placement_cost = @expression(model, sum( instance.s_network[s_node][:cost] * v_network[v_node][:dem] * x[v_network, v_node, s_node] 
+        for v_network in instance.v_networks for v_node in vertices(v_network) for s_node in vertices(instance.s_network) ))
+
+    placement_cost = @expression(model, sum( instance.s_network[s_node][:cost] * v_network[v_node][:dem] * x[v_network, v_node, s_node]
+        for v_network in instance.v_networks for v_node in vertices(v_network) for s_node in vertices(instance.s_network) ))
+    routing_cost = @expression(model, sum( instance.s_network[src(s_edge), dst(s_edge)][:cost] * v_network[src(v_edge), dst(v_edge)][:dem] * y[v_network, v_edge, s_edge]
+        for v_network in instance.v_networks for v_edge in edges(v_network) for s_edge in edges(instance.s_network) ))
+    @objective(model, Min, placement_cost + routing_cost);
+
+    println("How we lookin")
+
+    ### Constraints     
+
+    one_to_one = true
+    departure_cst = true
+
+
+    ### ======== Additional constraints
+    ### placement_restriction
+    for v_network in instance.v_networks
+        for v_node in keys(placement_restriction)
+            @constraint(model, sum(x[v_network, v_node, s_node] for s_node in placement_restriction[v_node]) == 1)
+        end
+    end
+
+
+    ### =========== Nodes constraints
+
+    # one substrate node per virtual node
+    for v_network in instance.v_networks
+        for v_node in vertices(v_network)
+            @constraint(model, sum(x[v_network, v_node, s_node] for s_node in vertices(instance.s_network)) == 1)
+        end
+    end
+
+    # if one to one : one virtual node per substrate node
+    if one_to_one
+        for s_node in vertices(instance.s_network)
+            for v_network in instance.v_networks
+                @constraint(model, sum(x[v_network, v_node, s_node] for v_node in vertices(v_network)) <= 1)
+            end
+        end
+    end
+
+    # node capacity
+    for s_node in vertices(instance.s_network)
+        @constraint(model, 
+            sum( v_network[v_node][:dem] * x[v_network, v_node, s_node] 
+                for v_network in instance.v_networks for v_node in vertices(v_network) ) 
+            <= 
+            instance.s_network[s_node][:cap] )
+    end
+
+
+    ### ========== Edges constraints 
+    
+    # edge capacity
+    for s_edge in edges(instance.s_network)
+        @constraint(model, 
+            sum( v_network[src(v_edge), dst(v_edge)][:dem] * y[v_network, v_edge, s_edge] 
+                for v_network in instance.v_networks for v_edge in edges(v_network)) 
+            <= 
+            instance.s_network[src(s_edge), dst(s_edge)][:cap] )
+    end
+    
+    # Flow conservation
+    for s_node in vertices(instance.s_network)
+        for v_network in instance.v_networks
+            for v_edge in edges(v_network)
+                @constraint(model, 
+                    x[v_network, src(v_edge), s_node] - x[v_network, dst(v_edge), s_node] 
+                    <=
+                    sum(y[v_network, v_edge, s_edge] for s_edge in get_out_edges(instance.s_network, s_node)) - 
+                        sum(y[v_network, v_edge, s_edge] for s_edge in get_in_edges(instance.s_network, s_node))
+                )
+            end
+        end
+    end
+
+
+    ### ========= Additional constraints
+    
+    ## Departure constraint
+    if one_to_one
+        if departure_cst
+            for s_node in vertices(instance.s_network)
+                for v_network in instance.v_networks
+                    for v_node in vertices(v_network)
+                        for v_edge in get_out_edges(v_network, v_node)
+                            @constraint(model, sum(y[v_network, v_edge, s_edge] for s_edge in get_out_edges(instance.s_network, s_node)) >= x[v_network, v_node, s_node])
+                        end
+                        for v_edge in get_in_edges(v_network, v_node)
+                            @constraint(model, sum(y[v_network, v_edge, s_edge] for s_edge in get_in_edges(instance.s_network, s_node)) >= x[v_network, v_node, s_node])
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    ## Symmetric edges routings (because undirected !)
+    undirected = true
+    if undirected
+        for v_network in instance.v_networks
+            for v_edge in edges(v_network)
+                for s_edge in edges(instance.s_network)
+                    @constraint(model, y[v_network, v_edge, s_edge] == y[v_network, get_edge(v_network, dst(v_edge), src(v_edge)), 
+                                                get_edge(instance.s_network, dst(s_edge), src(s_edge))])
+                end
+            end
+        end
+    end
+
+    println("How we lookin")
+    # Solving
+    set_silent(model)
+    optimize!(model)
+
+    status = termination_status(model)
+
+    if status != MOI.OPTIMAL
+        println("Infeasible or unfinished: $status")
+        return
+    end
+
+    print("Bah alors ?")
+    # Get the solution
+    x_values = value.(model[:x])
+    y_values = value.(model[:y])
+    columns = []
+    for v_network in instance.v_networks
+        node_placement = []
+        for v_node in vertices(v_network)
+            for s_node in vertices(instance.s_network)
+                if x_values[v_network, v_node, s_node] > 0.99
+                    append!(node_placement, s_node)
+                end
+            end
+        end
+
+        edge_routing = Dict()
+        for v_edge in edges(v_network)
+            if node_placement[src(v_edge)] == node_placement[dst(v_edge)]
+                edge_routing[v_edge] = Path(src(v_edge), dst(v_edge), [], 0)
+            end
+            used_edges = []
+            for s_edge in edges(instance.s_network)
+                if y_values[v_network, v_edge, s_edge] > 0.99
+                    push!(used_edges, s_edge)
+                end
+            end
+            edge_routing[v_edge] = order_path(instance.s_network, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 
+        end
+        m = Mapping(v_network, instance.s_network, node_placement, edge_routing)
+        println(m)
+
+        return m
+
+    end
+
+end
+
+
+
+
 
 ############ MASTER PROBLEM
 
@@ -689,6 +929,7 @@ function vn_decompo(instance, node_partitionning)
     nb_columns = 0
 
     get_initial_set_of_mappings(instance, vn_decompos)
+    get_initial_set_of_mappings_better(instance, vn_decompos)
     for v_network in instance.v_networks
         for subgraph in vn_decompos[v_network].subgraphs
             for mapping in vn_decompos[v_network].mappings[subgraph]

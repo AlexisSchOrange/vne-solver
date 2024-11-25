@@ -151,7 +151,7 @@ function set_up_compact_model_gurobi(instance, one_to_one = false, departure_cst
             for v_edge in edges(v_network)
                 @constraint(model, 
                     x[v_network, src(v_edge), s_node] - x[v_network, dst(v_edge), s_node] 
-                    <=
+                    ==
                     sum(y[v_network, v_edge, s_edge] for s_edge in get_out_edges(instance.s_network, s_node)) - 
                         sum(y[v_network, v_edge, s_edge] for s_edge in get_in_edges(instance.s_network, s_node))
                 )
@@ -168,10 +168,13 @@ function set_up_compact_model_gurobi(instance, one_to_one = false, departure_cst
                     for v_node in vertices(v_network)
                         for v_edge in get_out_edges(v_network, v_node)
                             @constraint(model, sum(y[v_network, v_edge, s_edge] for s_edge in get_out_edges(instance.s_network, s_node)) >= x[v_network, v_node, s_node])
+                            @constraint(model, sum(y[v_network, v_edge, s_edge] for s_edge in get_in_edges(instance.s_network, s_node)) <= 1 - x[v_network, v_node, s_node])
                         end
                         for v_edge in get_in_edges(v_network, v_node)
                             @constraint(model, sum(y[v_network, v_edge, s_edge] for s_edge in get_in_edges(instance.s_network, s_node)) >= x[v_network, v_node, s_node])
                         end
+
+
                     end
                 end
             end
@@ -445,6 +448,8 @@ end
 
 
 
+
+
 # Ne marche qu'en one to one pour l'instant...
 function solve_directed_compact_with_subgraphs_constraints(instance, node_partitionning, time_solver = 30)
     
@@ -460,7 +465,7 @@ function solve_directed_compact_with_subgraphs_constraints(instance, node_partit
             subgraph = my_induced_subgraph(vn, v_nodes, "subgraph_$i_subgraph")
             # Résolution
             subinstance = InstanceVNE([subgraph], instance.s_network)
-            mapping = solve_directed_compact_integer(subinstance, true, true, 30, true)[1]
+            mapping = solve_directed_compact_integer(subinstance, true, true, 60, false)[1]
             # get number of edges
             min_routing = 0
             for v_edge in edges(subgraph)

@@ -1,33 +1,11 @@
 using JSON
 using DataStructures
+using Graphs, MetaGraphsNext
+includet("../../utils/graph.jl")
 
-function write_s_network_to_json(mg)
-    nodes_info = [
-    OrderedDict("id" => node, "capacity" => mg[node][:cap], "cost" => mg[node][:cost])
-    for node in vertices(mg)
-    ]
 
-    edges_info = [
-        OrderedDict("source" => src(edge), "target" => dst(edge), "capacity" => mg[src(edge), dst(edge)][:cap], "cost" => mg[src(edge), dst(edge)][:cost])
-        for edge in edges(mg)
-    ]
 
-    graph_dict = OrderedDict("name" => mg[][:name], "type" => mg[][:type], "nodes" => nodes_info, "edges" => edges_info)
-
-    # Convert the dictionary to a JSON string with 2 spaces of indentation
-    json_str = JSON.json(graph_dict, 2)
-
-    # Post-process the JSON string to match the desired formatting
-    formatted_json_str = replace(json_str, r"(\s*{\n\s*\"id\": \d+.*\n\s*})" => s -> replace(s, "\n" => " "))
-
-    # Write the formatted JSON string to a file
-    filename = "output.json"
-    open(filename, "w") do f
-        write(f, formatted_json_str)
-    end
-end
-
-function write_network_to_json(mg)
+function write_network_to_json(mg, is_directed=true)
     formatted_json_str = "{\n"
     
     # about the graph:
@@ -36,6 +14,11 @@ function write_network_to_json(mg)
         formatted_json_str *= "\"" * string(mg[][k]) * "\""
 
         formatted_json_str *= ",\n"
+    end
+    if is_directed
+        formatted_json_str *= "\t\"directed\": true,\n"
+    else
+        formatted_json_str *= "\t\"directed\": false,\n"
     end
 
     # node:
@@ -73,48 +56,51 @@ function write_network_to_json(mg)
     end
 end
 
-function write_v_network_to_json(mg)
-    nodes_info = [
-    OrderedDict("id" => node, "demand" => mg[node][:dem])
-    for node in vertices(mg)
-    ]
 
-    edges_info = [
-        OrderedDict("source" => src(edge), "target" => dst(edge), "demand" => mg[src(edge), dst(edge)][:dem])
-        for edge in edges(mg)
-    ]
-
-    graph_dict = OrderedDict("name" => mg[][:name], "type" => "virtual", "nodes" => nodes_info, "edges" => edges_info)
-
-    filename = mg[][:name] * ".json"
-    # Write the JSON string to a file
-    open(filename,"w") do f
-        JSON.print(f, graph_dict, 4)
+function read_gml_file(file_path::String)
+    open(file_path, "r") do file
+        return read(file, String)
     end
 end
 
 
 
-function some_triangle(n)
-    for i in 1:n
+function get_graph_from_gml(path)
+    gml_content = read_gml_file(path)
 
-        mg = MetaDiGraph()
-    
-        set_prop!(mg, :name, "triangle_" * string(i))
-        set_prop!(mg, :type, "virtual")
-    
-        add_vertices!(mg, 3)
-        add_edge!(mg, 1, 2)
-        add_edge!(mg, 2, 3)
-        add_edge!(mg, 3, 1)
-        add_edge!(mg, 3, 2)
-    
-        for node in vertices(mg)
-            set_prop!(mg, node, :dem, rand(1:2))
+    g = Graph()
+
+    gml_splitted = split(gml_content, '\n')
+    i_line = 1
+    name = "unknown-network"
+
+    while i_line < length(gml_splitted)
+        line = strip(gml_splitted[i_line])
+
+        if startswith(line, "Network ") 
+            key, name = split(line, " ")
+            name = strip(name, ['"'])
         end
-        for edge in edges(mg)
-            set_prop!(mg, edge, :dem, rand(1:2))
+
+
+        if startswith(line, "node") 
+            add_vertex!(g)
         end
-        write_graph_to_json(mg)
+
+        if startswith(line, "edge")
+            i_line += 1
+            line = strip(gml_splitted[i_line])
+            key, src = split(line, " ")
+            i_line += 1
+            line = strip(gml_splitted[i_line])
+            key, dst = split(line, " ")
+            add_edge!(g, parse(Int, src)+1, parse(Int, dst)+1)
+        end
+
+        i_line = i_line+1
     end
+
+    return g, name
 end
+
+

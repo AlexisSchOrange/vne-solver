@@ -1,5 +1,5 @@
 using Graphs, MetaGraphsNext
-
+includet("path.jl")
 
 
 function Base.show(
@@ -63,11 +63,9 @@ function get_edge(g, i, j)
             return edge
         end
     end
-    if !g[][:directed]
-        for edge in edges(g)
-            if (dst(edge) == i) && (src(edge) == j)
-                return edge
-            end
+    for edge in edges(g)
+        if (dst(edge) == i) && (src(edge) == j)
+            return edge
         end
     end
     println("Edge not found: " * string(i) * "=>" * string(j))
@@ -203,4 +201,23 @@ function find_edge(g, start_node, end_node)
         println("Edge not found!")
     end
     return edge
+end
+
+
+function print_graph(mg)
+    println("Metagraph ")
+    print("Nodes:")
+    for node in vertices(mg)
+        print("\nNode " * string(node) * " with ")
+        for k in keys(mg[node])
+            print(string(k) * ": " * string(mg[node][k]))
+        end
+    end
+    print("\nEdges:")
+    for edge in edges(mg)
+        print("\nEdge " * string(edge))
+        for k in keys(mg[src(edge), dst(edge)])
+            print(" with $k : $(mg[src(edge), dst(edge)][k])" )
+        end
+    end
 end

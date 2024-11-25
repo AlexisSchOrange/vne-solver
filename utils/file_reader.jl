@@ -1,7 +1,7 @@
 import Base.parse
 import JSON
 using Graphs, MetaGraphsNext
-
+includet("instance.jl")
 
 function read_graph(filename::String)
     json_graph = JSON.parsefile(filename)
@@ -119,4 +119,27 @@ function get_instance_from_folder(folder_path::String)
 
     return(instance)
 end
+
+
+function get_instance_1vn_from_folder(folder_path::String)
+    virtual_network = nothing
+    substrate_network = nothing
+    for filename in readdir(folder_path; join=true)
+        g, type = read_graph(filename)
+        if type == 1
+            virtual_network = g
+        else
+            substrate_network = g
+        end
+    end
+
+    if virtual_network[][:directed]
+        instance = InstanceVNE_1s(virtual_network, substrate_network)
+    else
+        s_network_dir = generate_dir_sn(substrate_network)
+        instance = Instance_Undir_VNE_1s(virtual_network, substrate_network, s_network_dir)
+    end
+    return(instance)
+end
+
 

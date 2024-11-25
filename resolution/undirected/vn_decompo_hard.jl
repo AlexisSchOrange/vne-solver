@@ -13,9 +13,9 @@ function solve_undir_vndecompo_colge_hard(instance, node_partitionning)
     instance_dir = get_directed_instance(instance)
     println("Instance directed constructed, starting colge...")
     
-    mappings = solve_dir_vn_decompo(instance_dir, node_partitionning)
+    solve_dir_vn_decompo(instance_dir, node_partitionning);
 
-
+    
 
 end
 

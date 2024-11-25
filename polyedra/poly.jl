@@ -1,10 +1,160 @@
 
 using Polyhedra, CDDLib
+using XPORTA
 includet("../utils/file_reader.jl")
 includet("../utils/import_utils.jl")
 includet("../resolution/directed/compact/compact_formulation.jl")
 
 
+
+function solve_compact_frac_forfun(instance)
+    problem = set_up_compact_model_gurobi(instance, true, true, false)
+    model = problem.model
+
+    # POUR INSTANCE 2810 1/ : permet de gagner un peu de borne
+    #=
+    @constraint(model, - model[:x][instance.v_networks[1], 2, 4] - model[:x][instance.v_networks[1], 2, 5] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 8)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 8)]  <= -1)
+    @constraint(model, - model[:x][instance.v_networks[1], 1, 4] - model[:x][instance.v_networks[1], 1, 5] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 8)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 8)]  <= -1)
+    @constraint(model, - model[:x][instance.v_networks[1], 2, 2] - model[:x][instance.v_networks[1], 2, 3] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 8)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 8)]  <= -1)
+    @constraint(model, - model[:x][instance.v_networks[1], 1, 2] - model[:x][instance.v_networks[1], 1, 3] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 8)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 8)]  <= -1)
+    @constraint(model, - model[:x][instance.v_networks[1], 1, 6] - model[:x][instance.v_networks[1], 1, 7] - model[:x][instance.v_networks[1], 2, 6] - model[:x][instance.v_networks[1], 2, 7] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 8)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 8)]  <= -1)
+    =#
+    #@constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 8)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 2)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 4)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 6)] - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 1), get_edge(instance.s_network, 1, 8)]  <= -1)
+    
+    
+    @constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] 
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 2, 1)]  
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 3, 4)]  
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 4, 3)] 
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 1, 2)] 
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 2, 1)] 
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 3, 4)] 
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 4, 3)] 
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 1, 2)] 
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 2, 1)] 
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 3, 4)] 
+                - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 4, 3)] 
+
+                <= -1)
+
+    # 2=>1, 3=>2, 3=>4
+    @constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 2, 1)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 2, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 2, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 3, 2)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 3, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 3, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 3, 4)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 3, 4)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 3, 4)]  
+        <= -1)
+    # 1=>2, 2=>3, 4=>3
+    @constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 1, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 1, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 2, 3)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 2, 3)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 2, 3)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 4, 3)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 4, 3)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 4, 3)]  
+        <= -1)
+
+    # 1=>4, 4=>1, 2=>3
+    @constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 4)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 1, 4)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 1, 4)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 4, 1)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 4, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 4, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 2, 3)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 2, 3)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 2, 3)]  
+        <= -1)
+
+    # 1=>2, 2=>1, 3=>4
+    @constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 1, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 1, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 2, 1)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 2, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 2, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 3, 4)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 3, 4)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 3, 4)]  
+        <= -1)
+
+    # 3=>2, 4=>1, 1=>4
+    @constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 3, 2)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 3, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 3, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 4, 1)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 4, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 4, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 4)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 1, 4)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 1, 4)]  
+        <= -1)
+
+    # 2=>3, 4=>1, 1=>4
+    @constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 2, 3)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 2, 3)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 2, 3)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 4, 1)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 4, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 4, 1)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 4)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 1, 4)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 1, 4)]  
+        <= -1)
+
+    # 4=>3, 3=>4, 1=>2
+    @constraint(model, - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 4, 3)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 4, 3)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 4, 3)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 1, 2)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 1, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 1, 2)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 1, 2), get_edge(instance.s_network, 3, 4)] 
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 2, 3), get_edge(instance.s_network, 3, 4)]  
+            - model[:y][instance.v_networks[1], get_edge(instance.v_networks[1], 3, 1), get_edge(instance.s_network, 3, 4)]  
+        <= -1)
+
+    relax_integrality(model)
+    optimize!(model)
+
+
+    # let's get the solution:
+
+    x_values = value.(problem.x_variables)
+    y_values = value.(problem.y_variables)
+    for v_network in instance.v_networks
+        node_placement = []
+        for v_node in vertices(v_network)
+            push!(node_placement, [])
+            for s_node in vertices(instance.s_network)
+                push!(node_placement[v_node], x_values[v_network, v_node, s_node])
+            end
+        end
+        edge_routing = Dict()
+        total_val = 0
+        for v_edge in edges(v_network)
+            edge_routing[v_edge] = Dict()
+            val = 0
+            for s_edge in edges(instance.s_network)
+                val += y_values[v_network, v_edge, s_edge]
+                edge_routing[v_edge][s_edge] = y_values[v_network, v_edge, s_edge]
+            end
+            total_val += val
+            println("For edge $v_edge we have $val")
+        end
+        println("Total val : $total_val")
+        m = MappingCompactFractional(v_network, instance.s_network, node_placement, edge_routing)
+        print(m)
+    end
+
+
+end
 
 
 function get_vrep_undir(instance)
@@ -59,7 +209,7 @@ function get_vrep_dir(instance)
     problem = set_up_compact_model_gurobi(instance, true, true, false)
     model = problem.model
     set_optimizer_attribute(model, "PoolSearchMode", 2)
-    set_optimizer_attribute(model, "PoolSolutions", 1000)
+    set_optimizer_attribute(model, "PoolSolutions", 10000)
 
 
     optimize!(model)
@@ -372,6 +522,67 @@ function print_polytope_simpler(poly, names_variables, print_index=false)
 
 end
 
+function print_polytope_simpler_smaller(poly, names_variables, print_index=false)
+    hr = hrep(poly);
+    println("There are " * string(length(names_variables)) * " variables.\n")
+    println("There are " * string(length(hyperplanes(hr))) * " hyperplanes")
+    for h in hyperplanes(hr)
+        for i_var in 1:length(names_variables)
+            if (h.a[i_var] > 0.0001)
+                print("+ ")
+                print(floor(Int, h.a[i_var]))
+                print(" ")
+                print(names_variables[i_var])
+                if print_index
+                    print("[" * string(i_var) * "]")
+                end
+                print("\t")
+            elseif (h.a[i_var] < -0.0001)
+                print("- ")
+                print(floor(Int, -h.a[i_var]))
+                print(" ")
+                print(names_variables[i_var])
+                if print_index
+                    print("[" * string(i_var) * "]")
+                end
+                print("\t")
+            end
+        end
+        print(" = ")
+        println(floor(Int,h.β))
+    end
+
+    println("\n\n There are " * string(length(halfspaces(hr))) * " halfspaces")
+    #=
+    for h in halfspaces(hr)
+        for i_var in 1:length(names_variables)
+            if (h.a[i_var] > 0.0001)
+                print("+ ")
+                print(floor(Int, h.a[i_var]))
+                print(" ")
+                print(names_variables[i_var])
+                if print_index
+                    print("[" * string(i_var) * "]")
+                end
+                print("\t")
+            elseif (h.a[i_var] < -0.0001)
+                print("- ")
+                print(floor(Int, -h.a[i_var]))
+                print(" ")
+                print(names_variables[i_var])
+                if print_index
+                    print("[" * string(i_var) * "]")
+                end
+                print("\t")
+            end
+        end
+        print(" ≤ ")
+        println(floor(Int,h.β))
+    end
+
+    =#
+
+end
 
 
 function print_variable(names_variables)
@@ -433,7 +644,7 @@ end
 function print_constraints(poly, instance)
 
     hr = hrep(poly);
-
+    #=
     for h in hyperplanes(hr)
         print("@constraint(model, ")
         
@@ -460,43 +671,45 @@ function print_constraints(poly, instance)
                     i_var += 1
                 end
             end
-            print(" = ")
+            print(" == ")
             print(floor(Int,h.β))
             println(")")
         end
 
     end
-
+    =#
 
     for h in halfspaces(hr)
-        print("@constraint(model, ")
-        
-        i_var = 1
-        for (i_vn, v_network) in enumerate(instance.v_networks)
-            for v_node in vertices(v_network)
-                for s_node in vertices(instance.s_network)
-                    if (h.a[i_var] > 0.01)
-                        print("+ model[:x][instance.v_networks[$i_vn], $v_node, $s_node] ")
-                    elseif (h.a[i_var] < -0.01)
-                        print("- model[:x][instance.v_networks[$i_vn], $v_node, $s_node] ")
+        if (floor(Int,h.β)< -0.5)
+            print("@constraint(model, ")
+            
+            i_var = 1
+            for (i_vn, v_network) in enumerate(instance.v_networks)
+                for v_node in vertices(v_network)
+                    for s_node in vertices(instance.s_network)
+                        if (h.a[i_var] > 0.01)
+                            print("+ model[:x][instance.v_networks[$i_vn], $v_node, $s_node] ")
+                        elseif (h.a[i_var] < -0.01)
+                            print("- model[:x][instance.v_networks[$i_vn], $v_node, $s_node] ")
+                        end
+                        i_var += 1
                     end
-                    i_var += 1
                 end
-            end
 
-            for v_edge in edges(v_network)
-                for s_edge in edges(instance.s_network)
-                    if (h.a[i_var] > 0.01)
-                        print("+ model[:y][instance.v_networks[$i_vn], get_edge(instance.v_networks[$i_vn], $(src(v_edge)), $(dst(v_edge))), get_edge(instance.s_network, $(src(s_edge)), $(dst(s_edge)))] ")
-                    elseif (h.a[i_var] < -0.01)
-                        print("- model[:y][instance.v_networks[$i_vn], get_edge(instance.v_networks[$i_vn], $(src(v_edge)), $(dst(v_edge))), get_edge(instance.s_network, $(src(s_edge)), $(dst(s_edge)))] ")
+                for v_edge in edges(v_network)
+                    for s_edge in edges(instance.s_network)
+                        if (h.a[i_var] > 0.01)
+                            print("+ model[:y][instance.v_networks[$i_vn], get_edge(instance.v_networks[$i_vn], $(src(v_edge)), $(dst(v_edge))), get_edge(instance.s_network, $(src(s_edge)), $(dst(s_edge)))] ")
+                        elseif (h.a[i_var] < -0.01)
+                            print("- model[:y][instance.v_networks[$i_vn], get_edge(instance.v_networks[$i_vn], $(src(v_edge)), $(dst(v_edge))), get_edge(instance.s_network, $(src(s_edge)), $(dst(s_edge)))] ")
+                        end
+                        i_var += 1
                     end
-                    i_var += 1
                 end
+                print(" <= ")
+                print(floor(Int,h.β))
+                println(")")
             end
-            print(" ≤ ")
-            print(floor(Int,h.β))
-            println(")")
         end
 
     end
