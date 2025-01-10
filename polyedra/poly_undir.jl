@@ -4,18 +4,118 @@ using Polyhedra, CDDLib, XPORTA
 
 
 includet("../utils/import_utils.jl")
-includet("../resolution/undirected/compact_undir.jl")
 
 
+
+function set_up_problem_undir_1vn_1t1(instance, model)
+
+    v_network = instance.v_network
+    s_network_dir = instance.s_network_dir
+    s_network = instance.s_network
+
+    ### Variables
+    @variable(model, x[vertices(v_network), vertices(instance.s_network)], binary=true);
+    @variable(model, y[edges(v_network), edges(s_network_dir)], binary=true);
+
+    
+
+    ### Objective
+    placement_cost = @expression(model, sum( instance.s_network[s_node][:cost] * v_network[v_node][:dem] * x[v_node, s_node] 
+        for v_node in vertices(v_network) for s_node in vertices(instance.s_network) ))
+    routing_cost = @expression(model, sum( s_network_dir[src(s_edge), dst(s_edge)][:cost] * v_network[src(v_edge), dst(v_edge)][:dem] * y[v_edge, s_edge]
+        for v_edge in edges(v_network) for s_edge in edges(s_network_dir) ))
+    @objective(model, Min, placement_cost + routing_cost);
+
+
+
+
+    ### Constraints
+
+    ## Nodes
+
+    # one substrate node per virtual node
+    for v_node in vertices(v_network)
+        @constraint(model, sum(x[v_node, s_node] for s_node in vertices(instance.s_network)) == 1)
+    end
+
+    # one to one : one virtual node per substrate node
+    for s_node in vertices(instance.s_network)
+        @constraint(model, sum(x[v_node, s_node] for v_node in vertices(v_network)) <= 1)
+    end
+
+    # node capacity : NOT USELESS AHHHHHHHHh
+    for s_node in vertices(instance.s_network)
+        @constraint(model, sum(v_network[v_node][:dem] * x[v_node, s_node] for v_node in vertices(v_network)) <= sum(s_network[s_node][:cap]))
+    end
+
+    ## Edges 
+    
+    # edge capacity (undirected version !)
+    for s_edge in edges(instance.s_network)
+        @constraint(model, 
+            sum( v_network[src(v_edge), dst(v_edge)][:dem] * (y[v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] + y[v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]  )
+                for v_edge in edges(v_network)) 
+            <= 
+            instance.s_network[src(s_edge), dst(s_edge)][:cap] )
+    end
+    
+    # Flow conservation
+    for s_node in vertices(instance.s_network)
+        for v_edge in edges(v_network)
+            @constraint(model, 
+                x[src(v_edge), s_node] - x[dst(v_edge), s_node] 
+                ==
+                sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node)) - 
+                    sum(y[v_edge, s_edge] for s_edge in get_in_edges(s_network_dir, s_node))
+            )
+        end
+    end
+
+    
+    ## Departure constraints
+    
+    for s_node in vertices(instance.s_network)
+        for v_edge in edges(v_network)
+            @constraint(model, sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node)) 
+                >= x[src(v_edge), s_node])
+        end
+    end
+    
+    
+    
+    # Simple path constraints, only useful for porta.
+    # Note that non-simple path and subtours are possible with the formulation, 
+    # but will never appear in practice due to being expensive for nothing.
+    for s_node in vertices(instance.s_network)
+        for v_node in vertices(v_network)
+            for v_edge in get_out_edges(v_network, v_node)
+                @constraint(model, 
+                    sum(y[v_edge, s_edge] for s_edge in get_in_edges(s_network_dir, s_node)) 
+                    <= 1 - x[v_node, s_node] )
+            end
+        end
+    end
+    # to remove loops..
+    for v_edge in edges(v_network)
+        for s_edge in edges(instance.s_network)
+            @constraint(model, y[v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] 
+                + y[v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))] 
+                <= 1 )
+        end
+    end
+
+    
+    
+end
 
 
 function get_sols_undir(instance)
 
     model = Model(Gurobi.Optimizer)
     set_silent(model)
+    s_network_dir = instance.s_network_dir
 
-    s_network_dir = generate_dir_sn(instance)
-    set_up_problem_undir_1vn_1t1(instance, s_network_dir, model)
+    set_up_problem_undir_1vn_1t1(instance, model)
     set_optimizer_attribute(model, "PoolSearchMode", 2)
     set_optimizer_attribute(model, "PoolSolutions", 1000)
     
@@ -66,8 +166,29 @@ function get_hrep(sols, names)
     println("There is $(length(sols)) solutions and $(length(names)) variables in your instance.")
     println("Computing the hrep... This might take some time... ")
     h_rep = hrep(poly);
-    return poly
     print("finished.")
+    return h_rep
+end
+
+
+
+function get_dominant_hrep(sols, names)
+    rays = []
+    for i_var in 1:length(names)
+        ray = zeros(Int64, length(names))
+        ray[i_var] = 1
+        push!(rays, ray)
+    end
+    v_rep = convexhull(sols...) + conichull(rays...)
+    poly = polyhedron(v_rep, XPORTA.Library(:float));
+    #print(poly)
+
+    println("There is $(length(sols)) solutions and $(length(names)) variables in your instance.")
+    println("Computing the hrep... This might take some time... ")
+    h_rep = hrep(poly);
+
+    return(h_rep)
+
 end
 
 
@@ -80,8 +201,8 @@ function get_sols_undir_simplified(instance)
     model = Model(Gurobi.Optimizer)
     set_silent(model)
 
-    s_network_dir = generate_dir_sn(instance)
-    set_up_problem_undir_1vn_1t1(instance, s_network_dir, model)
+    s_network_dir = instance.s_network_dir
+    set_up_problem_undir_1vn_1t1(instance, model)
     set_optimizer_attribute(model, "PoolSearchMode", 2)
     set_optimizer_attribute(model, "PoolSolutions", 1000)
     
@@ -145,8 +266,7 @@ end
 
 
 
-function print_polytope(poly, names_variables)
-    hr = hrep(poly);
+function print_polytope(hr, names_variables)
     println("There are " * string(length(names_variables)) * " variables.\n")
     println("There are " * string(length(hyperplanes(hr))) * " hyperplanes")
     for h in hyperplanes(hr)
@@ -306,7 +426,7 @@ function get_sols_undir_gigatest(instance)
     s_network_dir = generate_dir_sn(instance)
     set_up_problem_undir_1vn_1t1(instance, s_network_dir, model)
     # BREAK THE SYMETRIES ?
-    @constraint(model, model[:x][1, 1] +model[:x][1, 3] +model[:x][1, 2]   == 1)
+    @constraint(model, model[:x][1, 1] == 1)
     println("What happens with the linear relax ?")
     unrelax = relax_integrality(model)
     optimize!(model)

@@ -1,0 +1,25 @@
+gap,int_value,lp_relax,lp_relax_end,nb_node,parameters,sn,time,vn
+-1.0,-9.999999e6,48.596,-1.0,0,"Dict(""nb_vnodes"" => 5)",s_BTN,0.786,Tr45
+0.119,50.0,44.0,44.682,749,"Dict(""nb_vnodes"" => 5)",s_Columbus,100.012,Tr45
+0.102,49.0,44.0,44.464,1761,"Dict(""nb_vnodes"" => 5)",s_DFN,100.015,Tr45
+0.153,52.0,43.999,45.099,1275,"Dict(""nb_vnodes"" => 5)",s_IRIS,100.031,Tr45
+0.083,48.0,44.0,44.321,366,"Dict(""nb_vnodes"" => 5)",s_Intellifiber,100.017,Tr45
+0.137,51.0,44.0,44.854,1034,"Dict(""nb_vnodes"" => 5)",s_Missouri,100.012,Tr45
+0.0,51.0,46.327,51.0,2976,"Dict(""nb_vnodes"" => 5)",s_BTN,64.303,Tr45_denser
+0.214,55.999,44.0,46.127,674,"Dict(""nb_vnodes"" => 5)",s_Columbus,100.015,Tr45_denser
+0.083,48.0,44.0,44.321,1006,"Dict(""nb_vnodes"" => 5)",s_DFN,100.015,Tr45_denser
+-1.0,-1.0,44.0,-1.0,1168,"Dict(""nb_vnodes"" => 5)",s_IRIS,100.009,Tr45_denser
+0.476,84.0,44.0,56.91,24,"Dict(""nb_vnodes"" => 5)",s_Intellifiber,100.297,Tr45_denser
+0.228,57.0,44.0,46.416,429,"Dict(""nb_vnodes"" => 5)",s_Missouri,100.098,Tr45_denser
+-1.0,-9.999999e6,48.596,-1.0,0,"Dict(""diff_deg"" => 2, ""nb_cons"" => 36, ""nb_vnodes"" => 5)",s_BTN,0.665,Tr45
+0.119,50.0,44.0,44.682,819,"Dict(""diff_deg"" => 2, ""nb_cons"" => 40, ""nb_vnodes"" => 5)",s_Columbus,100.01,Tr45
+0.153,52.0,44.0,45.099,1262,"Dict(""diff_deg"" => 2, ""nb_cons"" => 38, ""nb_vnodes"" => 5)",s_DFN,100.032,Tr45
+0.102,49.0,44.0,44.464,1831,"Dict(""diff_deg"" => 2, ""nb_cons"" => 34, ""nb_vnodes"" => 5)",s_IRIS,100.009,Tr45
+0.063,47.0,44.0,44.214,351,"Dict(""diff_deg"" => 2, ""nb_cons"" => 44, ""nb_vnodes"" => 5)",s_Intellifiber,100.021,Tr45
+0.137,51.0,44.0,44.854,1258,"Dict(""diff_deg"" => 2, ""nb_cons"" => 38, ""nb_vnodes"" => 5)",s_Missouri,100.015,Tr45
+0.0,51.0,46.326,51.0,1151,"Dict(""diff_deg"" => 2, ""nb_cons"" => 133, ""nb_vnodes"" => 5)",s_BTN,27.377,Tr45_denser
+0.254,59.0,44.0,47.049,1124,"Dict(""diff_deg"" => 2, ""nb_cons"" => 129, ""nb_vnodes"" => 5)",s_Columbus,100.013,Tr45_denser
+0.043,46.0,43.999,44.103,1521,"Dict(""diff_deg"" => 2, ""nb_cons"" => 121, ""nb_vnodes"" => 5)",s_DFN,100.017,Tr45_denser
+-1.0,-1.0,43.999,-1.0,1878,"Dict(""diff_deg"" => 2, ""nb_cons"" => 106, ""nb_vnodes"" => 5)",s_IRIS,100.01,Tr45_denser
+0.169,53.0,44.0,45.337,375,"Dict(""diff_deg"" => 2, ""nb_cons"" => 139, ""nb_vnodes"" => 5)",s_Intellifiber,100.015,Tr45_denser
+0.088,51.0,44.0,46.875,1669,"Dict(""diff_deg"" => 2, ""nb_cons"" => 122, ""nb_vnodes"" => 5)",s_Missouri,100.017,Tr45_denser

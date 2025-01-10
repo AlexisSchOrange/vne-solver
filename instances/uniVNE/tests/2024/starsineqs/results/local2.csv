@@ -1,0 +1,25 @@
+algo,gap,int_value,lp_relax,lp_relax_end,nb_node,parameters,sn,time,vn
+local_cuts_2,-1.0,-9.999999e6,48.596,-1.0,0,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 36)",s_BTN,0.847,Tr45
+local_cuts_2,0.185,54.0,43.999,45.569,712,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 40)",s_Columbus,100.256,Tr45
+local_cuts_2,0.083,48.0,44.0,44.321,1620,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 38)",s_DFN,100.013,Tr45
+local_cuts_2,0.153,52.0,44.0,45.099,1574,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 34)",s_IRIS,100.011,Tr45
+local_cuts_2,0.063,47.0,44.0,44.214,393,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 44)",s_Intellifiber,100.02,Tr45
+local_cuts_2,0.137,51.0,43.999,44.854,1164,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 38)",s_Missouri,100.016,Tr45
+local_cuts_2,0.0,51.0,46.326,51.0,634,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 133)",s_BTN,28.79,Tr45_denser
+local_cuts_2,0.214,56.0,44.0,46.128,884,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 129)",s_Columbus,100.015,Tr45_denser
+local_cuts_2,0.063,47.0,44.0,44.214,1111,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 121)",s_DFN,100.022,Tr45_denser
+local_cuts_2,-1.0,-1.0,43.999,-1.0,1129,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 106)",s_IRIS,100.012,Tr45_denser
+local_cuts_2,0.134,52.0,44.0,45.855,867,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 139)",s_Intellifiber,100.011,Tr45_denser
+local_cuts_2,0.153,52.0,44.0,45.099,1037,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 122)",s_Missouri,100.014,Tr45_denser
+local_cuts_both,-1.0,-9.999999e6,48.596,-1.0,0,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 72)",s_BTN,0.726,Tr45
+local_cuts_both,0.075,48.0,44.0,44.651,905,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 80)",s_Columbus,100.01,Tr45
+local_cuts_both,0.063,47.0,44.0,44.214,1946,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 76)",s_DFN,100.014,Tr45
+local_cuts_both,0.169,53.0,44.0,45.337,1445,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 68)",s_IRIS,100.009,Tr45
+local_cuts_both,0.063,47.0,44.0,44.214,188,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 88)",s_Intellifiber,100.02,Tr45
+local_cuts_both,0.083,48.0,44.0,44.321,1216,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 76)",s_Missouri,100.02,Tr45
+local_cuts_both,0.0,51.0,46.326,51.0,666,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 266)",s_BTN,23.522,Tr45_denser
+local_cuts_both,0.228,57.0,44.0,46.416,329,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 258)",s_Columbus,100.02,Tr45_denser
+local_cuts_both,0.119,50.0,43.999,44.682,1638,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 242)",s_DFN,100.014,Tr45_denser
+local_cuts_both,-1.0,-1.0,44.0,-1.0,1406,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 212)",s_IRIS,100.012,Tr45_denser
+local_cuts_both,0.137,51.0,43.999,44.854,471,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 278)",s_Intellifiber,100.019,Tr45_denser
+local_cuts_both,0.29,62.0,43.999,48.062,491,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 244)",s_Missouri,100.014,Tr45_denser

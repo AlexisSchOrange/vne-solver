@@ -1,0 +1,13 @@
+gap,int_value,lp_relax,lp_relax_end,nb_node,parameters,sn,time,vn
+-1.0,-9.999999e6,48.596,-1.0,0,"Dict(""nb_vnodes"" => 5)",s_BTN,1.1,Tr45
+0.119,50.0,44.0,44.682,697,"Dict(""nb_vnodes"" => 5)",s_Columbus,100.018,Tr45
+0.083,48.0,44.0,44.321,1372,"Dict(""nb_vnodes"" => 5)",s_DFN,100.018,Tr45
+-1.0,-1.0,44.0,-1.0,834,"Dict(""nb_vnodes"" => 5)",s_IRIS,100.016,Tr45
+0.405,74.0,43.999,52.669,35,"Dict(""nb_vnodes"" => 5)",s_Intellifiber,100.366,Tr45
+0.043,46.0,43.999,44.103,789,"Dict(""nb_vnodes"" => 5)",s_Missouri,100.014,Tr45
+0.0,51.0,46.332,51.0,1066,"Dict(""nb_vnodes"" => 5)",s_BTN,20.767,Tr45_denser
+0.192,57.0,45.25,47.818,746,"Dict(""nb_vnodes"" => 5)",s_Columbus,100.017,Tr45_denser
+0.043,46.0,43.999,44.103,2007,"Dict(""nb_vnodes"" => 5)",s_DFN,100.026,Tr45_denser
+-1.0,-1.0,44.115,-1.0,988,"Dict(""nb_vnodes"" => 5)",s_IRIS,100.011,Tr45_denser
+0.228,57.0,44.0,46.416,274,"Dict(""nb_vnodes"" => 5)",s_Intellifiber,100.019,Tr45_denser
+0.14,52.0,44.517,45.614,1028,"Dict(""nb_vnodes"" => 5)",s_Missouri,100.014,Tr45_denser

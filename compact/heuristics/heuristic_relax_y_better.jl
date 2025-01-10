@@ -1,0 +1,1 @@
+#todo : use only y that are in the PL might not work... do shortest paths between possible x ?

@@ -1,0 +1,13 @@
+algo,gap,int_value,lp_relax,lp_relax_end,nb_node,parameters,sn,time,vn
+local_cuts_both,-1.0,-9.999999e6,48.596,-1.0,0,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 72)",s_BTN,0.726,Tr45
+local_cuts_both,0.075,48.0,44.0,44.651,905,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 80)",s_Columbus,100.01,Tr45
+local_cuts_both,0.063,47.0,44.0,44.214,1946,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 76)",s_DFN,100.014,Tr45
+local_cuts_both,0.169,53.0,44.0,45.337,1445,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 68)",s_IRIS,100.009,Tr45
+local_cuts_both,0.063,47.0,44.0,44.214,188,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 88)",s_Intellifiber,100.02,Tr45
+local_cuts_both,0.083,48.0,44.0,44.321,1216,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 76)",s_Missouri,100.02,Tr45
+local_cuts_both,0.0,51.0,46.326,51.0,666,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 266)",s_BTN,23.522,Tr45_denser
+local_cuts_both,0.228,57.0,44.0,46.416,329,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 258)",s_Columbus,100.02,Tr45_denser
+local_cuts_both,0.119,50.0,43.999,44.682,1638,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 242)",s_DFN,100.014,Tr45_denser
+local_cuts_both,-1.0,-1.0,44.0,-1.0,1406,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 212)",s_IRIS,100.012,Tr45_denser
+local_cuts_both,0.137,51.0,43.999,44.854,471,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 278)",s_Intellifiber,100.019,Tr45_denser
+local_cuts_both,0.29,62.0,43.999,48.062,491,"Dict{Any, Int64}(5 => 5, ""diff_deg"" => 2, ""nb_cons"" => 244)",s_Missouri,100.014,Tr45_denser

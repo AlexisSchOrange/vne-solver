@@ -2,7 +2,7 @@ using Graphs, MetaGraphsNext
 using Revise
 includet("../../utils/graph.jl")
 includet("io.jl")
-includet("../../resolution/undirected/compact_undir.jl")
+includet("../../compact/compact_undir.jl")
 
 
 
@@ -115,7 +115,7 @@ end
 
 
 
-function get_vn_from_base(clg)
+function get_vn_from_base(g)
 
     v_network = MetaGraph(
         Graph(),
@@ -125,11 +125,11 @@ function get_vn_from_base(clg)
         Dict(:name=>"vn", :type=>"substrate")
     )
 
-    for node in vertices(clg)
+    for node in vertices(g)
         add_vertex!(v_network, node, Dict(:dem=> 1))
     end
 
-    for edge in edges(clg)
+    for edge in edges(g)
         add_edge!(v_network, src(edge), dst(edge), Dict(:dem=>1))
     end
 
@@ -154,3 +154,24 @@ function affinate_capacities!(s_network)
     end
 
 end
+
+
+
+function randomize_costs!(s_network)
+
+    node_cost_max = 0
+    node_cost_min = 0
+    edge_cost_max = 5
+    edge_cost_min = 2
+
+    for node in vertices(s_network) 
+        s_network[node][:cost] = rand(node_cost_min:node_cost_max)
+    end
+
+    for edge in edges(s_network) 
+        s_network[src(edge), dst(edge)][:cost] = rand(edge_cost_min:edge_cost_max)
+    end
+
+
+end
+

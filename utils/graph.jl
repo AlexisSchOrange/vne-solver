@@ -13,16 +13,17 @@ function Base.show(
 end
 
 
-# Only for directed graphs !
+# Only for undirected graphs !
+# !!!!!!!!!!! SELECTOR NEEDS TO BE INT64 TYPE LOLILOL
 function my_induced_subgraph(meta_graph, selector, name)
     induced_graph, osef = induced_subgraph(meta_graph.graph, selector)
 
     induced_metagraph = MetaGraph(
-        DiGraph(),
+        Graph(),
         Int,
         Dict,
         Dict,
-        Dict(:name => name, :type => meta_graph[][:type], :directed => true)
+        Dict(:name => name, :type => meta_graph[][:type], :directed => false)
     )
 
     for node in vertices(induced_graph)

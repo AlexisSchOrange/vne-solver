@@ -1,0 +1,25 @@
+gap,int_value,lp_relax,nb_node,sn,time,vn
+0.0,44.0,39.55123372172721,2788,"Dict{Any, Any}()",s_BTN,46.061,Tr40
+0.093,43.0,39.0,2192,"Dict{Any, Any}()",s_Columbus,100.013,Tr40
+0.071,42.0,39.0,3301,"Dict{Any, Any}()",s_DFN,100.014,Tr40
+0.133,45.0,39.0,3444,"Dict{Any, Any}()",s_IRIS,100.013,Tr40
+0.024,40.0,39.0,929,"Dict{Any, Any}()",s_Intellifiber,100.016,Tr40
+0.048,41.0,39.0,2087,"Dict{Any, Any}()",s_Missouri,100.011,Tr40
+0.0,43.0,39.0,428,"Dict{Any, Any}()",s_BTN,7.089,Tr40_denser
+0.047,47.0,39.0,4994,"Dict{Any, Any}()",s_Columbus,100.014,Tr40_denser
+0.0,38.999,39.0,2782,"Dict{Any, Any}()",s_DFN,52.031,Tr40_denser
+0.0,43.0,39.0,2843,"Dict{Any, Any}()",s_IRIS,71.01,Tr40_denser
+0.0,42.0,39.0,259,"Dict{Any, Any}()",s_Intellifiber,32.603,Tr40_denser
+0.061,45.0,39.0,4611,"Dict{Any, Any}()",s_Missouri,100.01,Tr40_denser
+-1.0,-9.999999e6,48.596,-1.0,0,"Dict{Any, Any}()",s_BTN,0.869,Tr45
+0.119,49.999,44.0,44.681,688,"Dict{Any, Any}()",s_Columbus,100.013,Tr45
+0.063,47.0,44.0,44.214,1467,"Dict{Any, Any}()",s_DFN,100.014,Tr45
+-1.0,-1.0,44.0,-1.0,1370,"Dict{Any, Any}()",s_IRIS,100.006,Tr45
+0.043,46.0,44.0,44.103,491,"Dict{Any, Any}()",s_Intellifiber,100.073,Tr45
+0.083,48.0,44.0,44.321,724,"Dict{Any, Any}()",s_Missouri,100.015,Tr45
+0.0,51.0,46.326,51.0,2972,"Dict{Any, Any}()",s_BTN,59.74,Tr45_denser
+0.241,58.0,44.0,46.736,1553,"Dict{Any, Any}()",s_Columbus,100.014,Tr45_denser
+0.083,48.0,44.0,44.321,3291,"Dict{Any, Any}()",s_DFN,100.012,Tr45_denser
+-1.0,-1.0,43.999,-1.0,1231,"Dict{Any, Any}()",s_IRIS,100.182,Tr45_denser
+0.153,52.0,44.0,45.099,1276,"Dict{Any, Any}()",s_Intellifiber,100.018,Tr45_denser
+0.199,55.0,44.0,45.871,1546,"Dict{Any, Any}()",s_Missouri,100.013,Tr45_denser
