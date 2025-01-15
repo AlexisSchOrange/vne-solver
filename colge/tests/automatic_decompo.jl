@@ -3,9 +3,11 @@ using Revise
 using Graphs, MetaGraphsNext
 using JuMP, CPLEX, Gurobi
 
+using Metis
 
 
-includet("../../../utils/import_utils.jl")
+
+includet("../../utils/import_utils.jl")
 #includet("../../resolution/undirected/compact_undir.jl")
 
 
@@ -36,10 +38,23 @@ end
 
 
 
-function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
+function solve_subgraph_decompo_1vn(instance)
 
     v_network = instance.v_network
     s_network = instance.s_network
+
+    nb_v_subgraph = 4
+    repartition = Metis.partition(v_network.graph, nb_v_subgraph)
+
+    
+    v_node_partitionning = [Vector{Int64}() for i in 1:nb_v_subgraph]
+    for i in 1:nv(v_network)
+        push!(v_node_partitionning[repartition[i]], i)
+    end
+
+    println("Partitionning: $v_node_partitionning")
+    visu_partitioning(v_network.graph, repartition)
+
 
     println("Starting...")
 
@@ -82,7 +97,6 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
 
     while keep_on && nb_iter < nb_iter_max
 
-        print("\n")
         print("Iter " * string(nb_iter))
 
         time1 = time()
@@ -96,8 +110,6 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
         end
 
         dual_costs = get_duals(instance, vn_decompo, master_problem)
-
-
         time2 = time()
 
         nb_iter += 1
@@ -107,9 +119,10 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
         total_subpb_obj = 0
 
 
+
+
+        
         for subgraph in vn_decompo.subgraphs
-            println("For subgraph $(subgraph.graph)")
-            reduced_pricer(instance, vn_decompo, subgraph, dual_costs)
             column, obj_value = update_solve_pricer(instance, vn_decompo, pricers[subgraph], dual_costs)
             total_subpb_obj += obj_value
             if obj_value < -0.0001
@@ -118,13 +131,6 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
                 nb_columns += 1
                 push!(subgraph.columns, column)
             end
-            #=
-            print("For subgraph $(subgraph.graph), nodes")
-            for v_node in vertices(subgraph.graph)
-                print(" $(column.mapping.node_placement[v_node]), ")
-            end
-            print("\n")
-            =#
         end
     
         
@@ -143,17 +149,17 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
             total_dual_value += dual_costs.capacity_s_edge[s_edge] * s_network[src(s_edge), dst(s_edge)][:cap]
         end
         LG_value =  total_dual_value + total_subpb_obj
-
+            
         if LG_value > best_LG
             if nb_iter > 1
                 best_LG = LG_value
             end
         end
-        #print(", Current Lagrang.B.: " * string(floor(LG_value * 1000 ) / 1000 ))
-        #print(", Best Lagrang.B.: " * string(floor(best_LG * 1000 ) / 1000 ))
+        print(", Current Lagrang.B.: " * string(floor(LG_value * 1000 ) / 1000 ))
+        print(", Best Lagrang.B.: " * string(floor(best_LG * 1000 ) / 1000 ))
 
 
-        #print(", Nb Columns: " * string(nb_columns))
+        print(", Nb Columns: " * string(nb_columns))
         time_master += time2 - time1
         time_subproblems += time3 - time2
         print("\n")
@@ -290,14 +296,9 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
 end
 
 
-
-
-
-
 function set_up_decompo(instance, node_partitionning)
 
     vn = instance.v_network
-
         
     node_assignment = Dict()
     for v_node in vertices(vn)
@@ -666,6 +667,7 @@ function get_duals(instance, vn_decompo, master_problem)
         end
     end
 
+
     for s_node in vertices(instance.s_network)
         capacity_s_node[s_node]  = dual(master_problem.model[:capacity_s_node][s_node])
     end
@@ -764,6 +766,24 @@ function set_up_pricer(instance, subgraph)
             end
         end
     end
+
+    # Outgoing edges cap: pretty stupid but useful
+    i = 0
+    for v_node in vertices(subgraph.graph)
+        for s_node in vertices(s_network)
+            v_edges_incident = [get_edge(subgraph.graph, v_node, neighbor) for neighbor in neighbors(subgraph.graph, v_node)]
+            necessary_bw = 0 + sum(subgraph.graph[src(v_edge), dst(v_edge)][:dem] for v_edge in v_edges_incident)
+
+            s_edges_incident = [get_edge(s_network, s_node, neighbor) for neighbor in neighbors(s_network, s_node)]
+            available_bw = 0 +sum(s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident)
+            if necessary_bw > available_bw
+                i+=1
+                @constraint(model, model[:x][v_node, s_node] == 0)
+            end 
+        end
+    end
+    #println("We get this to delete: $i")
+
 
     return SubProblem(model, instance.s_network, instance.v_network, subgraph);
 end
@@ -874,7 +894,6 @@ function update_solve_pricer(instance, vn_decompo, pricer, dual_costs)
 
     dual_value = objective_value(model)
     #println("The price of the column is : $(cost_of_column), and the obj is : $(dual_value)")
-    println("   For original pb: value: $(objective_value(model)), time $(solve_time(model))")
 
     return column, dual_value
 
@@ -884,182 +903,10 @@ end
 
 
 
-function reduced_pricer(instance, vn_decompo, subgraph, dual_costs)
-
-    v_network = instance.v_network
-    s_network = instance.s_network
-    s_network_dir = instance.s_network_dir
-    
-    #### Model
-    model = Model(CPLEX.Optimizer)
-    set_attribute(model, "CPX_PARAM_EPINT", 1e-8)
-
-    ### Variables
-    @variable(model, x[v_node in vertices(subgraph.graph), s_node in vertices(s_network)], binary=true);
-    @variable(model, y[v_edge in edges(subgraph.graph), s_edge in edges(s_network_dir)], binary=true);
-
-
-    ### Constraints
-
-    ## Nodes
-
-    # one substrate node per virtual node
-    for v_node in vertices(subgraph.graph)
-        @constraint(model, sum(x[v_node, s_node] for s_node in vertices(s_network)) == 1)
-    end
-
-    # if one to one : one virtual node per substrate node
-    for s_node in vertices(s_network)
-        @constraint(model, sum(x[v_node, s_node] for v_node in vertices(subgraph.graph)) <= 1)
-    end
-
-
-
-    # node capacity
-    for s_node in vertices(s_network)
-        @constraint(model, 
-            sum( subgraph.graph[v_node][:dem] * x[v_node, s_node] 
-                for v_node in vertices(subgraph.graph) ) 
-            <= 
-            instance.s_network[s_node][:cap] )
-    end
-
-
-    ## Edges 
-    
-    # edge capacity (undirected version)
-    for s_edge in edges(s_network)
-        @constraint(model, 
-            sum( subgraph.graph[src(v_edge), dst(v_edge)][:dem] * (y[v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] + y[v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]) 
-                for v_edge in edges(subgraph.graph)) 
-            <= 
-            s_network[src(s_edge), dst(s_edge)][:cap] )
-    end
-    
-    # Flow conservation
-    for s_node in vertices(s_network)
-        for v_edge in edges(subgraph.graph)
-            @constraint(model, 
-                x[src(v_edge), s_node] - x[dst(v_edge), s_node] 
-                ==
-                sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node)) - 
-                    sum(y[v_edge, s_edge] for s_edge in get_in_edges(s_network_dir, s_node))
-            )
-        end
-    end
-
-
-    ## Departure cst : Node + Edge
-    for s_node in vertices(s_network)
-        for v_node in vertices(subgraph.graph)
-            for v_edge in get_out_edges(subgraph.graph, v_node)
-                @constraint(model, sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node)) >= x[v_node, s_node])
-            end
-        end
-    end
-
-
-    ### ========= ADDITIONAL CONSTRAINT : Constraining the node placement for nodes that are in cut edges.
-    for v_node in vertices(subgraph.graph)
-        to_constrain = false
-
-        prices_s_nodes = Dict()
-        for s_node in vertices(s_network)
-            price = s_network[s_node][:cost] - dual_costs.capacity_s_node[s_node]
-
-            for connecting_edge in vn_decompo.v_edges_master
-                if subgraph ∈ keys(vn_decompo.v_nodes_assignment[src(connecting_edge)])
-                    if v_node == vn_decompo.v_nodes_assignment[src(connecting_edge)][subgraph]
-                        to_constrain = true
-                        price += - dual_costs.flow_conservation[connecting_edge][s_node] - dual_costs.departure[connecting_edge][s_node]
-                    end
-                end
-                if subgraph ∈ keys(vn_decompo.v_nodes_assignment[dst(connecting_edge)])
-                    if v_node == vn_decompo.v_nodes_assignment[dst(connecting_edge)][subgraph]
-                        to_constrain = true
-                        price += dual_costs.flow_conservation[connecting_edge][s_node]
-                    end
-                end
-            end
-            prices_s_nodes[s_node] = price
-        end
-
-        if to_constrain
-
-            sorted_s_nodes = sort(collect(keys(prices_s_nodes)), by=x -> prices_s_nodes[x])
-            @constraint(model, sum(x[v_node, s_node] for s_node in sorted_s_nodes[1:10]) == 1)
-
-        end
-    end
-
-
-    ### ========== Objective : SHOULD BE DONE ELSEWHERE BUT I'M SO LAZYYYYY
-    placement_cost = @expression(model, 
-    sum( ( s_network[s_node][:cost] - dual_costs.capacity_s_node[s_node] ) * subgraph.graph[v_node][:dem] * model[:x][v_node, s_node] 
-        for v_node in vertices(subgraph.graph) for s_node in vertices(s_network) ))
-
-    routing_cost = @expression(model, sum( 
-        ( s_network[src(s_edge), dst(s_edge)][:cost] - dual_costs.capacity_s_edge[s_edge] ) 
-        * subgraph.graph[src(v_edge), dst(v_edge)][:dem] * (model[:y][v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] + model[:y][v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))])
-                for v_edge in edges(subgraph.graph) for s_edge in edges(s_network) ))
-
-
-            
-    # flow conservation
-    flow_conservation_cost = AffExpr(0.)
-
-    for s_node in vertices(s_network)
-        for connecting_edge in vn_decompo.v_edges_master
-            if subgraph ∈ keys(vn_decompo.v_nodes_assignment[src(connecting_edge)])
-                v_node_subgraph = vn_decompo.v_nodes_assignment[src(connecting_edge)][subgraph]
-                add_to_expression!(
-                    flow_conservation_cost, 
-                    -dual_costs.flow_conservation[connecting_edge][s_node] , 
-                    model[:x][v_node_subgraph, s_node])
-            end
-            if subgraph ∈ keys(vn_decompo.v_nodes_assignment[dst(connecting_edge)])
-                v_node_subgraph = vn_decompo.v_nodes_assignment[dst(connecting_edge)][subgraph]
-                add_to_expression!(
-                    flow_conservation_cost, 
-                    +dual_costs.flow_conservation[connecting_edge][s_node], 
-                    model[:x][v_node_subgraph, s_node])
-            end
-        end
-    end
-
-
-    # departure !
-    departure_costs = AffExpr(0.)
-    for s_node in vertices(s_network)
-        for connecting_edge in vn_decompo.v_edges_master
-            if subgraph ∈ keys(vn_decompo.v_nodes_assignment[src(connecting_edge)])
-                v_node_subgraph = vn_decompo.v_nodes_assignment[src(connecting_edge)][subgraph]
-                add_to_expression!(
-                    departure_costs, 
-                    -dual_costs.departure[connecting_edge][s_node], 
-                    model[:x][v_node_subgraph,s_node])
-            end
-        end
-    end
-
-
-    @objective(model, Min, 
-            -dual_costs.convexity[subgraph]
-            + placement_cost + routing_cost 
-            + flow_conservation_cost 
-            + departure_costs);
-
-    set_silent(model)
-    #println("\n\n\nOKKKK SO THIS IS THE WEIRDO ONE BUDDY")
-
-    optimize!(model)
-    if is_solved_and_feasible(model)
-        println("   For reduced pb  : value: $(objective_value(model)), time $(solve_time(model))")
-    end
-end
-
-
 ### ========= Column Generation result
+
+# !!!!!!!!! This is not ready ! it's not taking into account a lot of things...
+
 struct MappingDecompoFrac
     v_network
     s_network
@@ -1138,4 +985,7 @@ function add_dummy_cols(instance, vn_decompo, master_problem)
         set_normalized_coefficient(model[:mapping_selec][subgraph], lambda, 1)
     end
 end
+
+
+
 

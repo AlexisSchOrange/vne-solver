@@ -150,7 +150,7 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
         print("\n")
 
         ϵ = (CG_value - best_LG) / best_LG
-        if ϵ < 0.0005 && ϵ > 0.
+        if ϵ < 0.05 && ϵ > 0.
             keep_on = false
         end
 

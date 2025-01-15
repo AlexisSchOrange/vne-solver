@@ -125,6 +125,7 @@ function set_up_problem_undir_1vn_1t1(instance, model)
 
     =#
 
+    
     # Outgoing edges cap: pretty stupid but useful
     i = 0
     for v_node in vertices(v_network)

@@ -9,6 +9,7 @@ includet("../../../utils/import_utils.jl")
 #includet("../../resolution/undirected/compact_undir.jl")
 
 
+### On prend les s_noeuds qui sont dans les colonnes dans l'ordre
 
 
 # TODO:
@@ -150,7 +151,7 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
         print("\n")
 
         ϵ = (CG_value - best_LG) / best_LG
-        if ϵ < 0.05 && ϵ > 0.
+        if ϵ < 0.15 && ϵ > 0.
             keep_on = false
         end
 
@@ -198,7 +199,6 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
             possible_placement[v_node_original] = sorted_s_nodes[1:10]
         end
     end
-    # get the better ?
 
     #println(possible_placement)
     compact_model = Model(CPLEX.Optimizer)

@@ -3,7 +3,7 @@ using Revise
 using Graphs, MetaGraphsNext
 using JuMP, CPLEX, Gurobi
 
-
+### On prend les s_noeuds qui sont dans les colonnes mais au pif apparement
 
 includet("../../../utils/import_utils.jl")
 #includet("../../resolution/undirected/compact_undir.jl")
