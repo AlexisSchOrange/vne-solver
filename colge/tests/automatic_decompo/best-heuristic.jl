@@ -50,8 +50,8 @@ function solve_subgraph_decompo_1vn(instance)
     v_network = instance.v_network
     s_network = instance.s_network
 
-    nb_v_subgraph = 3
-    repartition = Metis.partition(v_network.graph, nb_v_subgraph)
+    nb_v_subgraph = 4
+    repartition = Metis.partition(v_network.graph, nb_v_subgraph; alg=:RECURSIVE)
 
     
     v_node_partitionning = [Vector{Int64}() for i in 1:nb_v_subgraph]
@@ -82,10 +82,13 @@ function solve_subgraph_decompo_1vn(instance)
 
     print("Master problem set... ")
 
-    nb_columns = 0
     add_dummy_cols(instance, vn_decompo, master_problem)
     add_set_of_original_cols(instance, vn_decompo, master_problem)
 
+    nb_columns = 0
+    for subgraph in vn_decompo.subgraphs
+        nb_columns += length(subgraph.columns)
+    end
     print("Initial set of columns generated... ")
 
     pricers = Dict()
@@ -140,7 +143,6 @@ function solve_subgraph_decompo_1vn(instance)
                 keep_on = true 
                 add_column(master_problem, instance, subgraph, column)
                 nb_columns += 1
-                push!(subgraph.columns, column)
             end
         end
     
@@ -176,7 +178,7 @@ function solve_subgraph_decompo_1vn(instance)
         print("\n")
 
         ϵ = (CG_value - best_LG) / best_LG
-        if ϵ < 0.15 && ϵ > 0.
+        if ϵ < 0.05 && ϵ > 0.
             keep_on = false
         end
 
@@ -221,7 +223,6 @@ function solve_subgraph_decompo_1vn(instance)
                 keep_on = true 
                 add_column(master_problem, instance, subgraph, column)
                 nb_columns += 1
-                push!(subgraph.columns, column)
             end
         end
     
@@ -302,7 +303,7 @@ function solve_subgraph_decompo_1vn(instance)
             end
             v_node_original = subgraph.nodes_of_main_graph[v_node]
             sorted_s_nodes = sort(collect(keys(possible_nodes)), by=s_node -> -possible_nodes[s_node])
-            possible_placement[v_node_original] = sorted_s_nodes[1:20]
+            possible_placement[v_node_original] = sorted_s_nodes[1:min(10, length(sorted_s_nodes))]
         end
     end
 
@@ -561,6 +562,9 @@ end
 
 
 function add_column(master_problem, instance, subgraph, column)
+
+    push!(subgraph.columns, column)
+
 
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
@@ -1535,7 +1539,7 @@ function add_set_of_original_cols(instance, vn_decompo, master_problem)
         end
     
         #println("What do you think ? Here is the substrate graph")
-        visu_partitioning(s_network.graph, repartition)
+        #visu_partitioning(s_network.graph, repartition)
     
         # Let's add some neighbors :S
         for (i_part, s_nodes_of_subgraph) in enumerate(partition)

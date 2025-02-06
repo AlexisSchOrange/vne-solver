@@ -5,7 +5,7 @@ using JuMP, CPLEX, Gurobi
 
 
 
-includet("../utils/import_utils.jl")
+includet("../../../utils/import_utils.jl")
 #includet("../../resolution/undirected/compact_undir.jl")
 
 
@@ -140,6 +140,7 @@ function solve_subgraph_decompo_1vn(instance, v_node_partitionning)
             total_dual_value += dual_costs.capacity_s_edge[s_edge] * s_network[src(s_edge), dst(s_edge)][:cap]
         end
         LG_value =  total_dual_value + total_subpb_obj
+        print("dual value : $total_dual_value, total subpb value: $total_subpb_obj")
             
         if LG_value > best_LG
             if nb_iter > 1

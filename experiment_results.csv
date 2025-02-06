@@ -1,8 +1,0 @@
-gap,int_value,lp_relax,lp_relax_end,nb_node,parameters,sn,time,vn
--1.0,-1.0,35.999,-1.0,4050,"Dict{Any, Any}()",s_ARPANET,100.009,4_Wheels5
--1.0,-1.0,36.0,-1.0,4470,"Dict{Any, Any}()",s_BTN,100.006,4_Wheels5
--1.0,-1.0,36.0,-1.0,262,"Dict{Any, Any}()",s_Columbus,100.013,4_Wheels5
-0.576,85.0,36.0,53.934,2941,"Dict{Any, Any}()",s_DFN,100.009,4_Wheels5
--1.0,-1.0,36.0,-1.0,994,"Dict{Any, Any}()",s_IRIS,100.006,4_Wheels5
--1.0,-1.0,36.0,-1.0,373,"Dict{Any, Any}()",s_Intellifiber,100.014,4_Wheels5
--1.0,-1.0,36.0,-1.0,290,"Dict{Any, Any}()",s_Missouri,100.012,4_Wheels5

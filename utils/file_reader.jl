@@ -7,10 +7,18 @@ function read_graph(filename::String)
     json_graph = JSON.parsefile(filename)
     if json_graph["type"] == "virtual"
         g = read_virtual(json_graph)
+        if !is_connected(g)
+            error("The graphs must be connected")
+            return
+        end
         return g, 1
     end
     if json_graph["type"] == "substrate"
         g = read_substrate(json_graph)
+        if !is_connected(g)
+            error("The graphs must be connected")
+            return
+        end
         return g, 2
     end
 end
