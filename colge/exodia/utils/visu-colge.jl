@@ -41,6 +41,8 @@ function visu_repartition(g, repartition)
     w = []
     for i_node in 1:nv(g)
         if i_node < 10
+            push!(w, 100)
+        elseif i_node < 100
             push!(w, 10)
         else
             push!(w, 1)
@@ -65,7 +67,7 @@ function visu_repartition(g, repartition)
         names=string.(1:nv(g)),
         curvature_scalar=0.01,
         markercolor=marker_cols,
-        node_size = 0.4,
+        node_size = 0.5,
         dpi=300
     )
     display(p) 
@@ -94,6 +96,8 @@ function visu_added_nodes(g, nodes, added)
     w = []
     for i_node in 1:nv(g)
         if i_node < 10
+            push!(w, 100)
+        elseif i_node < 100
             push!(w, 10)
         else
             push!(w, 1)
@@ -113,12 +117,17 @@ function visu_added_nodes(g, nodes, added)
         end
     end
 
-    p = graphplot(g, 
+    coord = spring(g, iterations=500)
+    p = graphplot(g,
+        x=[coord[i][1]*0.20 for i in 1:nv(g)],
+        y=[coord[i][2]*0.20 for i in 1:nv(g)],
         node_weights=w,
         names=string.(1:nv(g)),
         markercolor=marker_cols,
-        curvature_scalar=0.01, 
-        node_size=0.2)
+        curvature_scalar=0.01,
+        node_size = 0.4,
+        dpi=300 
+    )
 
     return p
 end

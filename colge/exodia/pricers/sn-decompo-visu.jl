@@ -63,7 +63,7 @@ function get_sn_decompo(instance, v_subgraph, path = "")
         push!(clusters[partition[s_node]], s_node)
     end
 
-    print("cluster: $clusters")
+    #print("cluster: $clusters")
     p = visu_partitionning(s_network, clusters)
 
     current_path = joinpath(path, "sn-dec-$(v_subgraph.graph[][:name])")

@@ -187,7 +187,10 @@ function set_up_subpb(model, subinstance)
         @constraint(model, sum(x[v_node, s_node] for v_node in vertices(v_network)) <= 1)
     end
 
-
+    # Node capacities
+    for s_node in vertices(s_network)
+        @constraint(model, sum(x[v_node, s_node] * v_network[v_node][:dem] for v_node in vertices(v_network)) <= s_network[s_node][:cap])
+    end
 
     ## Edges 
     

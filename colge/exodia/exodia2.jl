@@ -154,23 +154,29 @@ function solve_subgraph_decompo(instance, time_max = 20, v_node_partitionning = 
 
         # ------- SN PARTITION ---------
         if algo_to_use == 1  
-
+            print("pricer=paving, ")
+            best_value = 999
             #using the subpb that looks most promising
             sorted_subpb = sort(collect(sn_decompo_last_iter_sol), by=x->x[2])
-            #println("Ce chcicken: $sorted_subpb")
             for couple in sorted_subpb[1:5]
                 pricer_sub_sn = couple[1]
                 update_pricer_sn_decompo(vn_decompo, pricer_sub_sn, dual_costs)
                 column, obj_value = solve_pricers_sn_decompo(pricer_sub_sn)
-                add_column(master_problem, instance, pricer_sub_sn.vn_subgraph, column)
+                if column !== nothing
+                    add_column(master_problem, instance, pricer_sub_sn.vn_subgraph, column)
+                end
                 nb_columns += 1
 
                 if obj_value>-5.
                     sn_decompo_nb_desactivated+=1
                 end
                 sn_decompo_last_iter_sol[pricer_sub_sn] = obj_value
+
+                if obj_value < best_value
+                    best_value = obj_value
+                end
             end
-            print("best sol: , ")
+            print("best sol: $(round(best_value;digits=3)), ")
 
 
             if sn_decompo_nb_desactivated > (sn_decompo_overall_subpb-5)
@@ -179,12 +185,12 @@ function solve_subgraph_decompo(instance, time_max = 20, v_node_partitionning = 
             end 
 
 
-        # ---------- REDUCED PRICING ---------
-        elseif algo_to_use == 2
+        # ---------- REDUCED PRICING, let's just not use it ok ? ---------
+        elseif algo_to_use == -1
             sorted_subpb = sort(collect(reduced_pricer_last_iter_sol), by=x->x[2])
             pricer = sorted_subpb[1][1]
 
-            print("reduced, ")
+            print("pricer=reduced, ")
             column, obj_value = update_solve_pricer_reduced(instance, vn_decompo, pricer, dual_costs)
             add_column(master_problem, instance, pricer.subgraph, column)
             nb_columns += 1
@@ -203,7 +209,7 @@ function solve_subgraph_decompo(instance, time_max = 20, v_node_partitionning = 
             end
 
         # --------- FULL PRICING -----------
-        elseif algo_to_use == 3 # FULL PRICING
+        elseif algo_to_use >= 2 # FULL PRICING
             print("exact, ")
 
             # do all subpb, get lg bound ?
@@ -226,10 +232,13 @@ function solve_subgraph_decompo(instance, time_max = 20, v_node_partitionning = 
 
 
 
-
+        subgraph_to_do += 1
+        if subgraph_to_do > 3
+            subgraph_to_do = 1
+        end
 
         time_overall = time()-time_beginning
-        if time_overall < time_max
+        if time_overall < time_max * 0.94
             keep_on = true
         else
             keep_on = false
@@ -256,7 +265,7 @@ function solve_subgraph_decompo(instance, time_max = 20, v_node_partitionning = 
 
     # ======= END HEURISTIC STUFF ======= #
 
-    solution_heuristic = basic_heuristic(instance, vn_decompo)
+    solution_heuristic = basic_heuristic(instance, vn_decompo, time_max * 0.06)
 
     return solution_heuristic
     

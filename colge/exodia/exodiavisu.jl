@@ -26,7 +26,7 @@ includet("end-heuristic/basic-ilp.jl")
 
 
 
-function solve_subgraph_decompo(instance, time_max = 20, v_node_partitionning = [])
+function solve_subgraph_decompo(instance, time_max = 20, v_node_partitionning = [], nb_part = -1)
 
     println("Starting...")
     time_beginning = time()
@@ -40,12 +40,14 @@ function solve_subgraph_decompo(instance, time_max = 20, v_node_partitionning = 
     path_visus = "run_$(Dates.format(Dates.now(), "yyyy-mm-dd_at_HHhMM-SS"))"
     mkpath(path_visus) 
 
-
-
     # ======= SETTING UP THE DECOMPOSITION ======= #
     if v_node_partitionning == []
-        v_node_partitionning = partition_vn(instance)
+        if nb_part<0
+            nb_part = floor(Int, nv(v_network.graph)/9)+1
+        end
+        v_node_partitionning = partition_vn(instance, nb_part)
     end
+    
 
     p = visu_partitionning(v_network, v_node_partitionning)
     savefig(p, joinpath(path_visus, "partition_vn.png"))

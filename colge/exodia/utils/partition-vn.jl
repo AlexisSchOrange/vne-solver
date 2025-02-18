@@ -9,7 +9,7 @@ function partition_vn(instance, nb_clusters)
     graph = instance.v_network.graph
 
     # 1 : Partitionner
-    inbalance = 0.25
+    inbalance = 0.10
     println("$nb_clusters clusters to do, with inbalance $inbalance...")
     partition = partition_kahip(graph, nb_clusters, inbalance)
     clusters = [Vector{Int64}() for i in 1:nb_clusters]

@@ -33,6 +33,27 @@ function partition_kahip(g, nb_clusters, imbalance)
 end
 
 
+function partition_kahip_edgecut(g, nb_clusters, imbalance)
+    xadj, adjncy = graph_to_csr(g)
+
+    for i in 1:length(adjncy)
+        adjncy[i] = adjncy[i] - 1
+    end
+
+    # adapt it for c, because they start indexing at 0 lol
+
+    edgecut, part = simplified_kaffpa(xadj, adjncy, nb_clusters, imbalance)
+
+    # adapt it for julia, because we start indexing at 1 lol
+    for i in 1:length(part)
+        part[i] = part[i] + 1
+    end
+
+    return part, edgecut
+end
+
+
+
 
 function do_everything_kahip(g, nb_clusters)
     xadj, adjncy = graph_to_csr(g)
