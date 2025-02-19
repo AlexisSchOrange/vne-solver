@@ -8,7 +8,8 @@
 using Revise
 
 using Graphs, MetaGraphsNext
-using JuMP, CPLEX
+#using JuMP, CPLEX
+using JuMP, Gurobi
 using OrderedCollections
 
 #general

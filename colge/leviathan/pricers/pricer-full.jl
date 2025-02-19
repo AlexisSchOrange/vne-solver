@@ -1,3 +1,5 @@
+using JuMP, Gurobi
+
 
 #############============= PRICERRRR
 
@@ -15,8 +17,8 @@ function set_up_pricer(instance, subgraph)
     s_network_dir = instance.s_network_dir
     
     #### Model
-    model = Model(CPLEX.Optimizer)
-    set_attribute(model, "CPX_PARAM_EPINT", 1e-8)
+    model = Model(Gurobi.Optimizer)
+    #set_attribute(model, "CPX_PARAM_EPINT", 1e-8)
 
     ### Variables
     @variable(model, x[v_node in vertices(subgraph.graph), s_node in vertices(s_network)], binary=true);

@@ -1,6 +1,9 @@
 
 
-using Revise, JuMP, CPLEX, Gurobi
+#using Revise, JuMP, CPLEX, Gurobi
+using Revise, JuMP, Gurobi
+
+using SCIP
 includet("../utils/import_utils.jl")
 
 
@@ -135,7 +138,7 @@ function solve_compact(instance; time_solver = 30, stay_silent=true, linear=fals
     s_network_dir = instance.s_network_dir
 
 
-    model = Model(CPLEX.Optimizer)
+    model = Model(Gurobi.Optimizer)
     set_up_problem(instance, model)
 
     set_time_limit_sec(model, time_solver)
