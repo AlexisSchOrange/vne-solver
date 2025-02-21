@@ -36,8 +36,8 @@ function solve_all_instances(path)
             instance = Instance_Undir_VNE_1s(vn, sn)
 
             
-            val_ilp_300s = ceil(Int, solve_compact(instance, time_solver = 300, stay_silent=true, linear=false))
-            val_ilp_1200s = ceil(Int, solve_compact(instance, time_solver = 1200, stay_silent=true, linear=false))
+            val_ilp_300s = ceil(Int, solve_compact(instance, time_solver = 15, stay_silent=true, linear=false))
+            val_ilp_1200s = ceil(Int, solve_compact(instance, time_solver = 180, stay_silent=true, linear=false))
             push!(overall_df, (instance.v_network[][:name], instance.s_network[][:name], "ILP", val_ilp_300s, val_ilp_1200s)) 
 
             CSV.write("experiment_results.csv", overall_df)
