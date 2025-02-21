@@ -3,7 +3,6 @@
 #using Revise, JuMP, CPLEX, Gurobi
 using Revise, JuMP, CPLEX
 
-using SCIP
 includet("../utils/import_utils.jl")
 
 
