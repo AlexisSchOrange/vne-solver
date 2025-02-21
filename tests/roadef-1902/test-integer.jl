@@ -13,7 +13,7 @@ includet("../../utils/import_utils.jl")
 
 
 
-function solve_all_instances(path)
+function solve_all_instances_ilp(path)
 
 
     vns = []
@@ -28,7 +28,7 @@ function solve_all_instances(path)
         push!(sns, g)
     end
 
-    overall_df = DataFrame(Gr=String[], Gs=String[], Algo=String[], Res5m=Int[], Res20m=Int[])
+    overall_df = DataFrame(Gr=String[], Gs=String[], Algo=String[], Times=Int[], Res=Int32[], Gap=Float32[])
 
     for vn in vns
         println("Doing vn $(vn[][:name])...")
@@ -36,12 +36,11 @@ function solve_all_instances(path)
             println("   for sn $(sn[][:name])...")
             instance = Instance_Undir_VNE_1s(vn, sn)
 
-            
-            val_ilp_300s = ceil(Int, solve_compact(instance, time_solver = 10, stay_silent=true, linear=false))
-            val_ilp_1200s = ceil(Int, solve_compact(instance, time_solver = 30, stay_silent=true, linear=false))
-            push!(overall_df, (instance.v_network[][:name], instance.s_network[][:name], "ILP", val_ilp_300s, val_ilp_1200s)) 
-
-            CSV.write("experiment_results.csv", overall_df)
+            for time_limit in [300, 1200, 6000]
+                res, gap = solve_compact(instance, time_solver = time_limit, stay_silent=true, linear=false)
+                push!(overall_df, (instance.v_network[][:name], instance.s_network[][:name], "ILP", time_limit, res, gap)) 
+                CSV.write("xp_ilp_$(last(path, 4)[1:3]).csv", overall_df)
+            end
         end
     end
     
@@ -82,37 +81,11 @@ end
 
 
 
-function solve_instance(instance) 
-
-    overall_df = DataFrame(Gr=String[], Gs=String[], Algo=String[], Res1s=Int[], Res10s=Int[], Res60s=Int[], Res180s=Int[], Res600s=Int[])
-
-
-    val_ilp_1s = ceil(Int, solve_compact(instance, 1, true))
-    val_ilp_10s = ceil(Int, solve_compact(instance, 10, true))
-    val_ilp_60s = ceil(Int, solve_compact(instance, 60, true))
-    val_ilp_180s = ceil(Int, solve_compact(instance, 180, true))
-    val_ilp_600s = ceil(Int, solve_compact(instance, 600, true))
-    push!(overall_df, (instance.v_network[][:name], instance.s_network[][:name], "ILP", val_ilp_1s, val_ilp_10s, val_ilp_60s, val_ilp_180s, val_ilp_600s)) 
-
-    val_cg_1s = ceil(solve_subgraph_decompo(instance, 60, [], 1))
-    val_cg_10s = ceil(solve_subgraph_decompo(instance, 60, [], 10))
-    val_cg_60s = ceil(solve_subgraph_decompo(instance, 60, [], 60))
-    val_cg_180s = ceil(solve_subgraph_decompo(instance, 60, [], 180))
-    val_cg_600s = ceil(solve_subgraph_decompo(instance, 60, [], 600))
-    push!(overall_df, (instance.v_network[][:name], instance.s_network[][:name], "ILP", val_cg_1s, val_cg_10s, val_cg_60s, val_cg_180s, val_cg_600s)) 
-
-
-    CSV.write("experiment_results.csv", overall_df)
-    
-    println(overall_df)
-
-
-end
-
 
 function main(ARGS)
-    println("Let's solve for $(ARGS[1])")
-    solve_all_instances(ARGS[1])
+    for arg in ARGS
+        solve_all_instances_ilp(arg)
+    end
 end
 
 main(ARGS)

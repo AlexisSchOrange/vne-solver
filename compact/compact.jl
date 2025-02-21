@@ -156,9 +156,10 @@ function solve_compact(instance; time_solver = 30, stay_silent=true, linear=fals
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
         println("Infeasible or unfinished: $status")
-        return -999
+        return -999, 0.
     end
 
+    #=
     if !stay_silent
 
         x_values = value.(model[:x])
@@ -183,9 +184,12 @@ function solve_compact(instance; time_solver = 30, stay_silent=true, linear=fals
             print("\n")
         end
     end
+    =#
 
-    return objective_value(model)
+    obj = objective_value(model)
+    gap = relative_gap(model)
 
+    return obj, gap
 end
 
 
