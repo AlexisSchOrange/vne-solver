@@ -1,4 +1,3 @@
-using JuMP, Gurobi
 using JuMP, CPLEX
 
 

@@ -5,7 +5,7 @@ using Base.Libc
 using Libdl
 Libdl.dlopen("libkahip.so")  # No need for the full path!
 
-using Revise, JuMP, CPLEX, Gurobi, Metis
+using Revise, JuMP, CPLEX
 using Graphs, MetaGraphsNext
 
 includet("import_utils.jl")

@@ -7,7 +7,6 @@
 includet("../../../utils/import_utils.jl")
 includet("../../../utils/kahip_wrapper.jl")
 
-using Gurobi, JuMP
 using CPLEX, JuMP
 
 

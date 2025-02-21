@@ -1,7 +1,7 @@
 using Revise
 
 using Graphs, MetaGraphsNext
-using JuMP, CPLEX, Gurobi
+using JuMP, CPLEX
 
 
 

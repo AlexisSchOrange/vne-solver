@@ -13,7 +13,7 @@ using OrderedCollections
 
 #general
 includet("../../utils/import_utils.jl")
-includet("../../utils/visu.jl")
+#includet("../../utils/visu.jl")
 
 # utils colge
 includet("utils/utils-subgraphdecompo.jl")
