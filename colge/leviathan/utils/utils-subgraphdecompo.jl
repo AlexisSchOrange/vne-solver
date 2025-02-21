@@ -1,6 +1,5 @@
 
 using JuMP, CPLEX
-using JuMP, Gurobi
 
 ### ALL THE STUFF THAT IS NEEDED FOR THE DECOMPOSITION
 

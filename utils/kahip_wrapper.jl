@@ -1,8 +1,9 @@
 using Base.Libc
 
 # Path to the KaHIP shared library
-const KAHIP_LIB = "/home/alexiss/KaHIP/build/libkahip.so"  # Update with the actual path
-
+#const KAHIP_LIB = "~/KaHIP/build/libkahip.so"  # Update with the actual path
+using Libdl
+Libdl.dlopen("libkahip.so")  # No need for the full path!
 
 using Revise, JuMP, CPLEX, Gurobi, Metis
 using Graphs, MetaGraphsNext
@@ -140,7 +141,7 @@ function kaffpa(n::Int32,
 
     # Call kaffpa
     ccall(
-        (:kaffpa, KAHIP_LIB), 
+        (:kaffpa, "libkahip.so"), 
         Cvoid,  # Return type
         (   
             Ptr{Cint},      #n
