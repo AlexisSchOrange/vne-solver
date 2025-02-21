@@ -4,6 +4,7 @@ using DataFrames, CSV
 
 #includet("../../colge/exodia/exodia2.jl")
 includet("../../compact/compact.jl")
+includet("../../utils/import_utils.jl")
 
 
 

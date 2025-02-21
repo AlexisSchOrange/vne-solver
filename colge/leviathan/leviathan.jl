@@ -8,7 +8,7 @@
 using Revise
 
 using Graphs, MetaGraphsNext
-#using JuMP, CPLEX
+using JuMP, CPLEX
 using JuMP, Gurobi
 using OrderedCollections
 
@@ -125,11 +125,12 @@ function solve_subgraph_decompo(instance; time_max = 60, v_node_partitionning = 
     LG_bound = 0
 
 
-    #----- Generating first columns
+    #----- Generating first columns => todo with heuristic in next round
     for vn_subgraph in vn_decompo.subgraphs
         for pricer_sub_sn in pricers_smaller_sn_decompo[vn_subgraph]
             update_pricer_sn_decompo(vn_decompo, pricer_sub_sn, dual_costs)
             column, obj_value = solve_pricers_sn_decompo(pricer_sub_sn)
+            print(".")
             if obj_value < 99999
                 add_column(master_problem, instance, vn_subgraph, column)
                 nb_columns += 1
@@ -323,7 +324,7 @@ function solve_subgraph_decompo(instance; time_max = 60, v_node_partitionning = 
 
     # ======= END HEURISTIC STUFF ======= #
 
-    solution_heuristic = basic_heuristic(instance, vn_decompo, 1000)
+    solution_heuristic = basic_heuristic(instance, vn_decompo, time_end_solving)
 
     return solution_heuristic
     

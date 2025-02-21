@@ -8,6 +8,8 @@ includet("../../../utils/import_utils.jl")
 includet("../../../utils/kahip_wrapper.jl")
 
 using Gurobi, JuMP
+using CPLEX, JuMP
+
 
 
 struct PricerSubSubstrate
@@ -32,7 +34,7 @@ function set_up_pricer_sn_decompo(instance, vn_subgraph, clusters)
         sub_s_network = my_induced_subgraph(s_network, cluster, "sub_sn_$i_cluster")
         subinstance = Instance_Undir_VNE_1s(vn_subgraph.graph, sub_s_network)
 
-        model = Model(Gurobi.Optimizer)
+        model = Model(CPLEX.Optimizer)
         set_up_subpb(model, subinstance)
 
         push!(pricers,  PricerSubSubstrate(cluster, vn_subgraph, subinstance, instance, model))

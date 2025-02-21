@@ -1,5 +1,5 @@
 
-#using JuMP, CPLEX
+using JuMP, CPLEX
 using JuMP, Gurobi
 
 ### ALL THE STUFF THAT IS NEEDED FOR THE DECOMPOSITION
@@ -138,7 +138,7 @@ function set_up_master_problem(instance, vn_decompo)
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
 
-    model = Model(Gurobi.Optimizer)
+    model = Model(CPLEX.Optimizer)
     #set_attribute(model, "CPX_PARAM_EPINT", 1e-8)
     set_silent(model)
 

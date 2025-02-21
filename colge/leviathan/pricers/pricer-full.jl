@@ -1,4 +1,5 @@
 using JuMP, Gurobi
+using JuMP, CPLEX
 
 
 #############============= PRICERRRR
@@ -17,7 +18,7 @@ function set_up_pricer(instance, subgraph)
     s_network_dir = instance.s_network_dir
     
     #### Model
-    model = Model(Gurobi.Optimizer)
+    model = Model(CPLEX.Optimizer)
     #set_attribute(model, "CPX_PARAM_EPINT", 1e-8)
 
     ### Variables
