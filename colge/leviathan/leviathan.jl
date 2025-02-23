@@ -629,7 +629,7 @@ function solve_subgraph_decompo_tests(instance; time_max = 60, v_node_partitionn
     solution_heuristic = basic_heuristic(instance, vn_decompo, time_end_solving)
 
 
-    return solution_heuristic, length(vn_decompo.subgraphs), CG_bound, LG_bound, nb_col
+    return solution_heuristic, length(vn_decompo.subgraphs), CG_bound, LG_bound, nb_columns
     
 end
 
