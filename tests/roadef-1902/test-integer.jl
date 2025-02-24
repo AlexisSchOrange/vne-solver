@@ -36,7 +36,7 @@ function solve_all_instances_ilp(path)
             println("   for sn $(sn[][:name])...")
             instance = Instance_Undir_VNE_1s(vn, sn)
 
-            for time_limit in [300, 1200, 6000]
+            for time_limit in [6000]
                 res, gap = solve_compact(instance, time_solver = time_limit, stay_silent=true, linear=false)
                 push!(overall_df, (instance.v_network[][:name], instance.s_network[][:name], "ILP", time_limit, res, gap)) 
                 CSV.write("xp_ilp_$(last(path, 4)[1:3]).csv", overall_df)
