@@ -43,7 +43,15 @@ function solve_all_instances_colge(path)
             if vn[][:name] == "W5_AW9"
                 nb_subgraphs=5
             end
-
+            if vn[][:name]=="v_Missouri"
+                nb_subgraphs=5
+            end
+            if vn[][:name]=="v_Intellifiber"
+                nb_subgraphs=6
+            end
+            if vn[][:name]=="v_OTEGlobe"
+                nb_subgraphs=6
+            end
 
             for time_limit in [3600]
                 res, nbsg, CG_bound, LG_bound, nb_col = solve_subgraph_decompo_tests(instance; time_max = time_limit, v_node_partitionning = [], nb_part = nb_subgraphs)
