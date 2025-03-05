@@ -111,6 +111,7 @@ function set_up_problem(instance, model)
 
     
     # Outgoing edges cap: pretty stupid but useful
+    
     i = 0
     for v_node in vertices(v_network)
         for s_node in vertices(s_network)
@@ -125,6 +126,7 @@ function set_up_problem(instance, model)
             end 
         end
     end
+    
     #println("We get this to delete: $i")
     
 end
@@ -187,12 +189,72 @@ function solve_compact(instance; time_solver = 30, stay_silent=true, linear=fals
     =#
 
     obj = objective_value(model)
+    println("The objective is : $(objective_value(model))")
+
+end
+
+
+
+function solve_compact_test(instance; time_solver = 30, stay_silent=true, linear=false)
+    
+    v_network = instance.v_network
+    s_network_dir = instance.s_network_dir
+
+
+    model = Model(CPLEX.Optimizer)
+    set_up_problem(instance, model)
+
+    set_time_limit_sec(model, time_solver)
+    if stay_silent
+        set_silent(model)
+    else
+        print("Starting solving... ")
+    end
+
+    if linear
+        relax_integrality(model)
+    end
+
+    optimize!(model)
+
+    status = primal_status(model)
+    if status != MOI.FEASIBLE_POINT
+        println("Infeasible or unfinished: $status")
+        return -999, 0.
+    end
+
+    #=
+    if !stay_silent
+
+        x_values = value.(model[:x])
+        y_values = value.(model[:y])
+    
+        println("Node placement:")
+        for v_node in vertices(v_network)
+            for s_node in vertices(s_network_dir)
+                if x_values[v_node, s_node] > 0.01
+                    println("$v_node is placed on $s_node")
+                end
+            end
+        end
+        println("\nEdge routing:")
+        for v_edge in edges(v_network)
+            print("Routing of $v_edge : ")
+            for s_edge in edges(s_network_dir)
+                if y_values[v_edge, s_edge] > 0.01
+                    print(" $s_edge")
+                end
+            end
+            print("\n")
+        end
+    end
+    =#
+
+    obj = objective_value(model)
     gap = relative_gap(model)
 
     return obj, gap
 end
-
-
 
 function solve_compact_pl(instance, time_solver = 30)
     

@@ -13,6 +13,7 @@ using JuMP, CPLEX
 function solve_pathge(instance)
 
     v_network = instance.v_network
+    s_network = instance.s_network
 
     master_problem = set_up_master_problem(instance)
 
@@ -26,8 +27,25 @@ function solve_pathge(instance)
         end
     end
 
+    optimize!(master_problem.model)
 
+    println("Well the objective value is : $(objective_value(master_problem.model))")
 
+    #=
+    for s_edge in edges(s_network)
+        cap_used = 0
+        for v_edge in edges(v_network)
+            for gamma in master_problem.gammas[v_edge]
+                for s_edge_path in gamma.path.edges
+                    if get_edge(s_network, src(s_edge_path), dst(s_edge_path)) == s_edge
+                        cap_used += value.(gamma.variable)
+                    end
+                end
+            end
+        end
+        println("For $s_edge, cap used: $cap_used, cap: $(s_network[src(s_edge), dst(s_edge)][:cap])")
+    end
+    =#
     # solve the master problem for that shit.
 
 

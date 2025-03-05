@@ -4,11 +4,6 @@ using JuMP, CPLEX, Gurobi
 # Implementation of : Virtual Network Embedding Based on the Degree and Clustering Coefficient Information
 
 
-# 
-
-
-
-
 function solve_VNE_DCC(instance)
 
 
