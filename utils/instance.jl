@@ -1,41 +1,18 @@
 using Graphs, MetaGraphsNext
 
-### Instance ###
-
-
-
-struct InstanceVNE
-    v_networks
-    s_network
-end
-
-
-struct InstanceVNE_1s
-    v_network
-    s_network
-end
-
-
-
-struct Instance_Undir_VNE
-    v_networks
-    s_network
-    s_network_dir
-end
-
-
-struct Instance_Undir_VNE_1s
+### Instance ##
+struct Instance
     v_network
     s_network
     s_network_dir
 end
 
 
-function Instance_Undir_VNE_1s(v_network, s_network)
+function Instance(v_network, s_network)
 
     s_network_dir = generate_dir_sn(s_network)
 
-    return Instance_Undir_VNE_1s(v_network, s_network, s_network_dir)
+    return Instance(v_network, s_network, s_network_dir)
 end
 
 

@@ -264,9 +264,9 @@ function get_v_rep_convexhull(instance, time_limit=100, sol_max=1000)
     optimize!(model)
     #set_optimizer_attribute(model, "CPX_PARAM_DISPLAY", 0)
 
-    set_optimizer_attribute(model, "CPX_PARAM_SOLNPOOLAGAP", 100000000.0)
-    set_optimizer_attribute(model, "CPX_PARAM_SOLNPOOLINTENSITY", 4)
-    set_optimizer_attribute(model, "CPX_PARAM_POPULATELIM", sol_max)
+    set_optimizer_attribute(model, "CPX_PARAM_SOLNPOOLAGAP", 5) # we accept +5 compared to the best
+    set_optimizer_attribute(model, "CPX_PARAM_SOLNPOOLINTENSITY", 2) # Not super aggressive populate, maybe could try 3 ?
+    set_optimizer_attribute(model, "CPX_PARAM_POPULATELIM", 10)
     
     backend_model = unsafe_backend(model);
     env = backend_model.env;

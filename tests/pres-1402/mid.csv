@@ -1,9 +1,0 @@
-Gr,Gs,Algo,Res1s,Res10s,Res60s,Res300s
-C5_K5,s_Uninett_easy,ILP,511,487,407,279
-C5_K5,s_Uninett_easy,Colge,343,296,284,279
-C5_K5,s_Uninett_mid,ILP,555,543,541,345
-C5_K5,s_Uninett_mid,Colge,-999,-999,340,349
-v_janos,s_Uninett_easy,ILP,443,374,356,232
-v_janos,s_Uninett_easy,Colge,-999,246,239,236
-v_janos,s_Uninett_mid,ILP,537,442,413,240
-v_janos,s_Uninett_mid,Colge,-999,286,273,258

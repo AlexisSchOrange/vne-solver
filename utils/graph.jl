@@ -13,8 +13,56 @@ function Base.show(
 end
 
 
+
+function get_attribute_node(mg, element, attribute)
+    if element in vertices(mg)
+        return mg[element][attribute]
+    else
+        println("Element not found!")
+    end
+end
+
+function get_attribute_edge(mg, element, attribute)
+    if element in edges(mg)
+        return mg[src(element), dst(element)][attribute]
+    else
+        println("Element not found!")
+    end
+end
+
+function get_attribute_graph(mg, attribute)
+    return mg[][attribute]
+end
+
+function set_attribute_edge(mg, element, attribute, new_thing)
+    if element in edges(mg)
+        mg[src(element), dst(element)][attribute] = new_thing
+    else
+        println("Element not found!")
+    end
+end
+
+function set_attribute_node(mg, element, attribute, new_thing)
+    if element in vertices(mg)
+        mg[element][attribute] = new_thing
+    else
+        println("Element not found!")
+    end
+end
+
+
+
+function get_reverse_edge(g, edge)
+    if get_edge(g, dst(edge), src(edge)) ∈ edges(g)
+        return get_edge(g, dst(edge), src(edge))
+    else
+        println("The reverse edge of $edge in $g has not been found...")
+    end
+end
+
+
 # Only for undirected graphs !
-# !!!!!!!!!!! SELECTOR NEEDS TO BE INT64 TYPE LOLILOL
+# !!!!!!!!!!! SELECTOR NEEDS TO BE INT64 TYPE 
 function my_induced_subgraph(meta_graph, selector, name)
     induced_graph, osef = induced_subgraph(meta_graph.graph, selector)
 
@@ -73,7 +121,7 @@ function get_edge(g, i, j)
     print_graph(g)
     
     throw("Edge not found")
-end
+end 
 
 
 # Cette fonction pourrait poser probleme si on met des chemins bizaroides. Pas la plus secure.
@@ -168,6 +216,7 @@ function good_path_of(g, nodes_of_path)
 end
 
 
+# to delete ?
 function path_in_paths(new_path, paths)
     for path in paths
         if length(path.edges) == length(new_path.edges)
@@ -222,3 +271,6 @@ function print_graph(mg)
         end
     end
 end
+
+
+

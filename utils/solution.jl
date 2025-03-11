@@ -4,14 +4,11 @@ struct Mapping
     virtual_network
     substrate_network
     node_placement
-    node_placement_cost
-    s_node_usage
     edge_routing
-    edge_routing_cost
-    s_edge_usage
 end
 
 
+#=
 function Mapping(v_network, s_network, node_placement, edge_routing)
     node_placement_cost = 0
     for v_node in vertices(v_network)
@@ -78,7 +75,7 @@ end
 
 
 
-function solution_checker(instance, mappings)
+function solution_checker(instance, mapping)
     solution_is_valid = true
 
     # Capacité noeuds
@@ -132,3 +129,4 @@ function solution_checker(instance, mappings)
     end
 end
 
+=#

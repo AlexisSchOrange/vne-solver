@@ -117,3 +117,38 @@ end
 
 
 # Visu de la solution !
+
+
+
+# visu perfo profile
+
+function performance_profile(times, names_algo)
+    time_max = maximum([sum(times[i]) for i in 1:length(times)])
+    plot(fmt = :png)
+
+    for (i_algo, times) in enumerate(times)
+
+        x = [0.]
+        y = [0.]
+
+        nb_instance = 0
+        nb_total_instances = length(times)
+        time_total = 0.
+
+        for time in times
+            push!(y, nb_instance/nb_total_instances)
+            nb_instance +=1
+            push!(y, nb_instance/nb_total_instances)
+
+            time_total += time
+            push!(x, time_total)
+            push!(x, time_total)
+        end
+        push!(x, time_max)
+        push!(y, 1.)
+
+        plot!(x, y, label = names_algo[i_algo], legend = :bottomright, xaxis = "Time (s)", yaxis = "% solved instances",linewidth=3)
+    end
+
+    savefig("benchmark_results.pdf" )# Display the plot
+end

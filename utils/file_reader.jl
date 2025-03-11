@@ -111,25 +111,8 @@ end
 
 
 
+
 function get_instance_from_folder(folder_path::String)
-    virtual_networks = []
-    substrate_network = nothing
-    for filename in readdir(folder_path; join=true)
-        g, type = read_graph(filename)
-        if type == 1
-            push!(virtual_networks, g)
-        else
-            substrate_network = g
-        end
-    end
-
-    instance = InstanceVNE(virtual_networks, substrate_network)
-
-    return(instance)
-end
-
-
-function get_instance_1vn_from_folder(folder_path::String)
     virtual_network = nothing
     substrate_network = nothing
     for filename in readdir(folder_path; join=true)
@@ -141,12 +124,7 @@ function get_instance_1vn_from_folder(folder_path::String)
         end
     end
 
-    if virtual_network[][:directed]
-        instance = InstanceVNE_1s(virtual_network, substrate_network)
-    else
-        s_network_dir = generate_dir_sn(substrate_network)
-        instance = Instance_Undir_VNE_1s(virtual_network, substrate_network, s_network_dir)
-    end
+    instance = Instance(virtual_network, substrate_network)
     return(instance)
 end
 
