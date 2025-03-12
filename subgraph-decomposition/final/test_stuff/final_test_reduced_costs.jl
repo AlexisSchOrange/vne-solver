@@ -11,25 +11,33 @@ using JuMP, CPLEX
 using OrderedCollections
 using Printf
 
+using DataFrames
+using CSV
+
 #general
-includet("../../utils/import_utils.jl")
+includet("../../../utils/import_utils.jl")
 #includet("../../utils/visu.jl")
 
 # utils colge
-includet("utils/utils-subgraphdecompo.jl")
-includet("utils/partition-vn.jl")
-includet("utils/base_relaxation.jl")
+includet("../utils/utils-subgraphdecompo.jl")
+includet("../utils/partition-vn.jl")
+includet("../utils/base_relaxation.jl")
 
 # pricers
-includet("pricers/pricer-full.jl")
-includet("pricers/sn-decompo.jl")
+includet("../pricers/pricer-full.jl")
+includet("../pricers/sn-decompo.jl")
 
 # end heuristics
-includet("end-heuristic/basic-ilp.jl")
+includet("../end-heuristic/basic-ilp.jl")
 
 
 
 function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning = [], nb_part = -1)
+
+    df_stats = DataFrame(Time=Float32[], CG_val=Float32[], LB_val=Float32[])
+
+
+
 
     println("Starting...")
     time_beginning = time()
@@ -205,8 +213,8 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
             if nb_desactivated_pricers >= nb_pricers   
                 keep_on = false
                 reason="changing to full solving to get better columns"
-            end
-            if nb_columns>200*length(vn_decompo.subgraphs)
+            end 
+            if nb_columns>150*length(vn_decompo.subgraphs)
                 keep_on=false
                 reason="too many columns generated already..."
             end
@@ -214,12 +222,19 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
             keep_on = false
             reason="time limit"
         end
+
+
+        push!(df_stats, (time_overall, cg_value, lower_bound)) 
+
+
+
     end
     println("\n Step 2 finished, reason: $reason. By the way: there was $nb_pricers")
 
 
 
 
+    CSV.write("stats_k_$(length(vn_decompo.subgraphs)).csv", df_stats)
 
 
     # ====== STEP 3: full pricers
@@ -301,6 +316,8 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
             reason="time limit"
         end
 
+        push!(df_stats, (time_overall, cg_value, lower_bound)) 
+
 
     end
 
@@ -313,6 +330,8 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     println("====================================================\n")
 
 
+    CSV.write("stats_k_$(length(vn_decompo.subgraphs)).csv", df_stats)
+
 
     # ======= END HEURISTIC STUFF ======= #
 
@@ -321,5 +340,3 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     return solution_heuristic
     
 end
-
-
