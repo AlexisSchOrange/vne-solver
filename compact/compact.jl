@@ -10,7 +10,7 @@ includet("../utils/import_utils.jl")
 
 # ========== CLASSICAL STUFF
 
-function set_up_problem(instance, model)
+function set_up_problem_ff(instance, model)
 
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
@@ -79,14 +79,14 @@ end
 
 
 
-function solve_compact(instance; time_solver = 30, stay_silent=true, linear=false)
+function solve_compact_ff(instance; time_solver = 30, stay_silent=true, linear=false)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
 
 
     model = Model(CPLEX.Optimizer)
-    set_up_problem(instance, model)
+    set_up_problem_ff(instance, model)
 
     set_time_limit_sec(model, time_solver)
     if stay_silent
@@ -104,8 +104,12 @@ function solve_compact(instance; time_solver = 30, stay_silent=true, linear=fals
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
         println("Infeasible or unfinished: $status")
-        return -999, 0.
+        return -999, objective_bound(model), node_count(model)
     end
+
+    println("nb de noeuds: $(node_count(model))")
+    println("Lower bound: $(objective_bound(model))")
+    println("The objective is : $(objective_value(model))")
 
     #=
     if !stay_silent
@@ -134,48 +138,37 @@ function solve_compact(instance; time_solver = 30, stay_silent=true, linear=fals
     end
     =#
 
-    obj = objective_value(model)
-    println("The objective is : $(objective_value(model))")
-
+    result = objective_value(model)
+    lb = objective_bound(model)
+    nbnodes = node_count(model)
+    return result, lb, nbnodes
 end
 
 
-
-function solve_compact_test(instance; time_limit = 30, stay_silent=true, linear=false)
+function solve_compact_ff_linear(instance; time_solver = 30, stay_silent=true, linear=false)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
 
 
     model = Model(CPLEX.Optimizer)
-    set_up_problem(instance, model)
+    set_up_problem_ff(instance, model)
 
-    set_time_limit_sec(model, time_limit)
+    set_time_limit_sec(model, time_solver)
     if stay_silent
         set_silent(model)
     else
         print("Starting solving... ")
     end
 
-    if linear
-        relax_integrality(model)
-    end
+    relax_integrality(model)
 
     optimize!(model)
-
+    
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
-        println("Infeasible or unfinished: $status")
-        return -999, 0.,  0
+        println("error! no solution possible...")
+        return -999
     end
-
-
-    obj = objective_value(model)
-    time = solve_time(model)
-    nb_nodes = node_count(model)
-
-    return obj, time, nb_nodes
+    return (objective_value(model))
 end
-
-
-

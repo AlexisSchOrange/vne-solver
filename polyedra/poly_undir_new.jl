@@ -83,6 +83,7 @@ function set_up_problem(instance, model)
     
     
     
+    
     # Simple path constraints, only useful for porta.
     # Note that non-simple path and subtours are possible with the formulation, 
     # but will never appear in practice due to being expensive for nothing.
@@ -103,7 +104,7 @@ function set_up_problem(instance, model)
                 <= 1 )
         end
     end
-
+    
     
     
 end
@@ -161,188 +162,11 @@ function get_sols(instance)
     return sols, name_variables
 end
 
-function get_sols_simplified(instance)
-
-    model = Model(Gurobi.Optimizer)
-    set_silent(model)
-
-    s_network_dir = instance.s_network_dir
-    set_up_problem(instance, model)
-    set_optimizer_attribute(model, "PoolSearchMode", 2)
-    set_optimizer_attribute(model, "PoolSolutions", 10000)
-    
-    print("Model set, starting to solve... ")
-
-    optimize!(model)
-    #solution_summary(model)
-    println("Done, there are $(result_count(model)) solutions")
-    sols = Vector{Vector{Int64}}()
-    for i in 1:result_count(model)
-        cur_sol = Vector{Int64}()
-        for v_node in vertices(instance.v_network)
-            for s_node in vertices(s_network_dir)
-                push!(cur_sol, round.(value.(model[:x][v_node, s_node]; result = i)))     
-            end
-        end
-
-        for v_edge in edges(instance.v_network)
-            for s_edge in edges(instance.s_network)
-                push!(cur_sol, round.(
-                    value.(model[:y][v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))]; result = i) 
-                    + value.(model[:y][v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]; result = i) ) )     
-            end
-        end
-
-        push!(sols, cur_sol)
-    end
-
-    name_variables = []
-    for v_node in vertices(instance.v_network)
-        for s_node in vertices(instance.s_network)
-            push!(name_variables, "x_" * string(v_node) * "_" * string(s_node))
-        end
-    end
-    
-    for v_edge in edges(instance.v_network)
-        for s_edge in edges(instance.s_network)
-            push!(name_variables, "y_" * string(src(v_edge)) * string(dst(v_edge)) * "_" * string(src(s_edge)) * string(dst(s_edge)))
-        end
-    end
-
-    return sols, name_variables
-
-
-
-end
-
-
-function get_sols_simplified_test(instance)
-
-    model = Model(Gurobi.Optimizer)
-    set_silent(model)
-
-    s_network_dir = instance.s_network_dir
-    set_up_problem(instance, model)
-    set_optimizer_attribute(model, "PoolSearchMode", 2)
-    set_optimizer_attribute(model, "PoolSolutions", 10000)
-    
-
-    # INEQUALTIES TO BREAK SIMETRY ?
-    @constraint(model, model[:x][1, 1] == 1)
-
-
-    print("Model set, starting to solve... ")
-
-    optimize!(model)
-    #solution_summary(model)
-    println("Done, there are $(result_count(model)) solutions")
-    sols = Vector{Vector{Int64}}()
-    for i in 1:result_count(model)
-        cur_sol = Vector{Int64}()
-        for v_node in vertices(instance.v_network)
-            for s_node in vertices(s_network_dir)
-                push!(cur_sol, round.(value.(model[:x][v_node, s_node]; result = i)))     
-            end
-        end
-
-        for v_edge in edges(instance.v_network)
-            for s_edge in edges(instance.s_network)
-                push!(cur_sol, round.(
-                    value.(model[:y][v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))]; result = i) 
-                    + value.(model[:y][v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]; result = i) ) )     
-            end
-        end
-
-        push!(sols, cur_sol)
-    end
-
-    name_variables = []
-    for v_node in vertices(instance.v_network)
-        for s_node in vertices(instance.s_network)
-            push!(name_variables, "x_" * string(v_node) * "_" * string(s_node))
-        end
-    end
-    
-    for v_edge in edges(instance.v_network)
-        for s_edge in edges(instance.s_network)
-            push!(name_variables, "y_" * string(src(v_edge)) * string(dst(v_edge)) * "_" * string(src(s_edge)) * string(dst(s_edge)))
-        end
-    end
-
-    return sols, name_variables
-
-
-
-end
-
-
-
-function get_sols_gigatest(instance)
-
-    model = Model(Gurobi.Optimizer)
-    #set_silent(model)
-
-    set_up_problem(instance, model)
-    # BREAK THE SYMETRIES ?
-    println("What happens with the linear relax ?")
-    unrelax = relax_integrality(model)
-    optimize!(model)
-    unrelax()
-
-
-    set_optimizer_attribute(model, "PoolSearchMode", 2)
-    set_optimizer_attribute(model, "PoolSolutions", 1000)
-    
-    print("Model set, starting to solve... ")
-    
-    optimize!(model)
-    #solution_summary(model)
-    println("Done, there are $(result_count(model)) solutions")
-    sols = Vector{Vector{Int64}}()
-    for i in 1:result_count(model)
-        cur_sol = Vector{Int64}()
-        for v_node in vertices(instance.v_network)
-            for s_node in vertices(s_network_dir)
-                push!(cur_sol, round.(value.(model[:x][v_node, s_node]; result = i)))     
-            end
-        end
-
-        for v_edge in edges(instance.v_network)
-            for s_edge in edges(instance.s_network)
-                push!(cur_sol, round.(
-                    value.(model[:y][v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))]; result = i) 
-                    + value.(model[:y][v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]; result = i) ) )     
-            end
-        end
-
-        push!(sols, cur_sol)
-    end
-
-    name_variables = []
-    for v_node in vertices(instance.v_network)
-        for s_node in vertices(instance.s_network)
-            push!(name_variables, "x_" * string(v_node) * "_" * string(s_node))
-        end
-    end
-    
-    for v_edge in edges(instance.v_network)
-        for s_edge in edges(instance.s_network)
-            push!(name_variables, "y_" * string(src(v_edge)) * string(dst(v_edge)) * "_" * string(src(s_edge)) * string(dst(s_edge)))
-        end
-    end
-
-    return sols, name_variables
-
-
-
-end
-
 
 ############### HREP
-
 function get_hrep(sols, names)
     v_rep = vrep(sols);
-    poly = polyhedron(v_rep, XPORTA.Library(:float));
+    poly = polyhedron(v_rep, CDDLib.Library());
     println("There is $(length(sols)) solutions and $(length(names)) variables in your instance.")
     println("Computing the hrep... This might take some time... ")
     h_rep = hrep(poly);
@@ -350,6 +174,12 @@ function get_hrep(sols, names)
     return h_rep
 end
 
+
+function get_polyhedron(sols, names)
+    v_rep = vrep(sols);
+    poly = polyhedron(v_rep, XPORTA.Library(:float));
+    return poly
+end
 
 
 function get_dominant_hrep(sols, names)
@@ -372,8 +202,9 @@ function get_dominant_hrep(sols, names)
 end
 
 
-# PRINTING
 
+
+# PRINTING
 function print_solutions(sols, names)
 
     for (i_sol, sol) in enumerate(sols)
@@ -387,122 +218,6 @@ function print_solutions(sols, names)
 end
 
 
-
-function print_polytope(hr, names_variables)
-    println("There are " * string(length(names_variables)) * " variables.\n")
-    println("There are " * string(length(hyperplanes(hr))) * " hyperplanes")
-    for h in hyperplanes(hr)
-        for i_var in 1:length(names_variables)
-            if (h.a[i_var] > 0.0001)
-                print("+ ")
-                print(floor(Int, h.a[i_var]))
-                print(" ")
-                print(names_variables[i_var])
-                print("\t")
-            elseif (h.a[i_var] < -0.0001)
-                print("- ")
-                print(floor(Int, -h.a[i_var]))
-                print(" ")
-                print(names_variables[i_var])
-                print("\t")
-            else
-                print("\t\t")
-            end
-        end
-        print(" = ")
-        println(floor(Int,h.β))
-    end
-
-    println("\n\n There are " * string(length(halfspaces(hr))) * " halfspaces")
-
-    for h in halfspaces(hr)
-        for i_var in 1:length(names_variables)
-            if (h.a[i_var] > 0.0001)
-                print("+ ")
-                print(floor(Int, h.a[i_var]))
-                print(" ")
-                print(names_variables[i_var])
-                print("\t")
-            elseif (h.a[i_var] < -0.0001)
-                print("- ")
-                print(floor(Int, -h.a[i_var]))
-                print(" ")
-                print(names_variables[i_var])
-                print("\t")
-            else
-                print("\t\t")
-            end
-        end
-        print(" ≤ ")
-        println(floor(Int,h.β))
-    end
-
-end
-
-
-function print_polytope_simpler(hr, names_variables, print_index=false)
-    println("There are " * string(length(names_variables)) * " variables.\n")
-    println("There are " * string(length(hyperplanes(hr))) * " hyperplanes")
-    for h in hyperplanes(hr)
-        for i_var in 1:length(names_variables)
-            if (h.a[i_var] > 0.0001)
-                print("+ ")
-                print(floor(Int, h.a[i_var]))
-                print(" ")
-                print(names_variables[i_var])
-                if print_index
-                    print("[" * string(i_var) * "]")
-                end
-                print("\t")
-            elseif (h.a[i_var] < -0.0001)
-                print("- ")
-                print(floor(Int, -h.a[i_var]))
-                print(" ")
-                print(names_variables[i_var])
-                if print_index
-                    print("[" * string(i_var) * "]")
-                end
-                print("\t")
-            end
-        end
-        print(" = ")
-        println(floor(Int,h.β))
-    end
-
-    println("\n\n There are " * string(length(halfspaces(hr))) * " halfspaces")
-
-    for h in halfspaces(hr)
-        for i_var in 1:length(names_variables)
-            if (h.a[i_var] > 0.0001)
-                print("+ ")
-                print(floor(Int, h.a[i_var]))
-                print(" ")
-                print(names_variables[i_var])
-                if print_index
-                    print("[" * string(i_var) * "]")
-                end
-                print("\t")
-            elseif (h.a[i_var] < -0.0001)
-                print("- ")
-                print(floor(Int, -h.a[i_var]))
-                print(" ")
-                print(names_variables[i_var])
-                if print_index
-                    print("[" * string(i_var) * "]")
-                end
-                print("\t")
-            end
-        end
-        print(" ≤ ")
-        println(floor(Int,h.β))
-    end
-
-
-
-end
-
-
-# todo : order the halfspace by length of nb on the left, so that's its easy to read ?
 function print_polytope_better(hr, names_variables)
     println("There are " * string(length(names_variables)) * " variables.\n")
     println("There are " * string(length(hyperplanes(hr))) * " hyperplanes")
@@ -570,36 +285,14 @@ function print_polytope_better(hr, names_variables)
 end
 
 
-
-# 13 11 : trying to do star on cycle, but it explodes really fast.
-function print_solutions_test(sols, names)
-
-    i_count = 0
-    i_var_to_watch = 3
-
-    for (i_sol, sol) in enumerate(sols)
-        if sol[i_var_to_watch] == 1     
-            i_count += 1
-            println("Solution num $(i_sol)")
-            for (i_var, value) in enumerate(sol)
-                if value > 0.5
-                    println("$(names[i_var])")
-                end
-            end
-        end
-    end
-
-    println("Y'en a eu $i_count pour $(names[i_var_to_watch])")
+function print_polyedron(poly, names)
+    h_rep = hrep(poly);
+    print_polytope_better(h_rep, names)
 end
 
-# trying to remove some symetries.
 
 
-
-# AYAAAAA
-
-
-function print_constraints(hr, instance)
+function print_constraints_jump(hr, instance)
 
     for h in halfspaces(hr)
         i_var = 1
@@ -631,4 +324,95 @@ function print_constraints(hr, instance)
 
 end
 
+
+function print_violated_constraints(hr, names, solution) 
+
+    println("\n\n There are " * string(length(halfspaces(hr))) * " halfspaces")
+
+    for h in halfspaces(hr)
+        sum_vals = 0
+        for i_var in 1:length(names)
+            sum_vals += h.a[i_var] * solution[i_var]
+        end
+
+        if sum_vals > h.β
+            println("New constraint violated ! $sum_vals > $(h.β)")
+            print_constraint(h, names)
+        end
+        
+        println("Ok lets check...")
+        println("Here is my solution: $solution")
+        print("Here is my constraint:  ")
+        print_constraint(h, names)
+        println("So lhs: $(sum_vals), and rhs: $(h.β)")
+        
+    end
+
+    println("Finished...")
+
+end
+
+
+function print_constraint_better(h, names_variables) 
+    
+    str_right = ""
+    str_left = ""
+    for i_var in 1:length(names_variables)
+        if (h.a[i_var] > 0.0001)
+            str_left *= "+ $(floor(Int, h.a[i_var]))$(names_variables[i_var])  "
+        elseif (h.a[i_var] < -0.0001)
+            str_right *= "+ $(floor(Int, -h.a[i_var]))$(names_variables[i_var])  "
+        end
+    end
+
+    if  h.β > 0.00001
+        str_right = " $(floor(Int,h.β)) " * str_right
+    elseif h.β < - 0.00001
+        str_left = " $(floor(Int,-h.β)) " * str_left
+    end
+    
+    if length(str_left) == 0
+        str_left = " 0 "
+    end
+    if length(str_right) == 0
+        str_right = " 0 "
+    end
+    print(str_right)
+    print(" ≥ ")
+    println(str_left)
+
+
+end
+
+
+function print_constraint(h, names_variables) 
+    
+    for i_var in 1:length(names_variables)
+        if (h.a[i_var] > 0.0001)
+            print("+ ")
+            print(h.a[i_var])
+            print(" ")
+            print(names_variables[i_var])
+            print("\t")
+        elseif (h.a[i_var] < -0.0001)
+            print("- ")
+            print(-h.a[i_var])
+            print(" ")
+            print(names_variables[i_var])
+            print("\t")
+        end
+    end
+    print(" ≤ ")
+    println(h.β)
+
+end
+
+
+
+function eliminate_variable(poly_entry, names_variables, var_to_remove)
+    poly_exit = eliminate(poly_entry, var_to_remove)
+    names_variables_exit = copy(names_variables)
+    deleteat!(names_variables_exit, var_to_remove)
+    return(poly_exit, names_variables_exit)
+end
 

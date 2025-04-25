@@ -6,16 +6,29 @@ includet("shortest-path-routing.jl")
 
 
 
-function solve_UEPSO(instance, forbiden_s_nodes=[])
+
+function solve_UEPSO(instance)
+
+
+    time_start = time()
 
     v_network = instance.v_network
     s_network = instance.s_network
 
+
+    # stuff for the choice a new s s_node
+    s_node_ressources = [ get_attribute_node(s_network, s_node, :cap) * sum(get_attribute_edge(s_network, get_edge(s_network, s_node, s_neighbor), :cap) for s_neighbor in neighbors(s_network, s_node)) 
+                            for s_node in vertices(s_network)]
+
+    total_ressource = sum(s_node_ressources)
+    s_node_ressources = s_node_ressources / total_ressource
+
+
+
     # PSO parameters
-    nb_particle=25  
-    nb_iter=40
-
-
+    nb_particle=100
+    nb_iter=10000
+    time_max = 3600
 
     position = []
     velocity = []
@@ -24,21 +37,22 @@ function solve_UEPSO(instance, forbiden_s_nodes=[])
     personal_best = []
     personal_best_cost = []
 
-    global_best = [i for i in 1:nv(v_network)]
-    global_best_cost = 99999
+    global_best = nothing
+    global_best_cost = 9999999
 
 
 
     # initialization
+    print("initialization... ")
     for particle in 1:nb_particle
 
         placement = []
         placement_cost=0
         for i in 1:nv(v_network)
             keep_on = true
-            while keep_on
-                s_node = rand(1:nv(s_network))
-                if s_node ∉ placement && get_attribute_node(s_network, s_node, :cap)>0 && s_node ∉ forbiden_s_nodes
+            while keep_on                
+                s_node = get_s_node(s_node_ressources)
+                if s_node ∉ placement && get_attribute_node(s_network, s_node, :cap)>0
                     push!(placement, s_node)
                     keep_on=false
                     placement_cost+= get_attribute_node(s_network, s_node, :cost)
@@ -57,44 +71,87 @@ function solve_UEPSO(instance, forbiden_s_nodes=[])
         if overall_cost < global_best_cost
             global_best = position[particle]
             global_best_cost = overall_cost
-            #println("We got a new best solution! value $overall_cost")
+            println("We got a new best solution! value $overall_cost")
         end
 
         push!(velocity, ones(nv(v_network)))
     end
+    println(" done, best solution has cost: $global_best_cost")
 
 
-
+    println("Starting iterations...")
     # iterations
-    for iter in 1:nb_iter
+    iter = 1
+    time_total = 0
+    while iter < nb_iter && time_total < time_max
         for particle in 1:nb_particle
 
-            velocity[particle] = plus( velocity[particle], 
-                                        minus(personal_best[particle], position[particle]), 
-                                        minus(global_best, position[particle]))
-            position[particle], placement_cost = times(position[particle], velocity[particle], instance, forbiden_s_nodes)
+            if personal_best_cost[particle] > 99999 # if the first isnt good, we reinitialized
+                #println("We still looking...")
+                placement = []
+                placement_cost=0
+                for i in 1:nv(v_network)
+                    keep_on = true
+                    while keep_on
+                        s_node = get_s_node(s_node_ressources)
+                        if s_node ∉ placement && get_attribute_node(s_network, s_node, :cap)>0
+                            push!(placement, s_node)
+                            keep_on=false
+                            placement_cost+= get_attribute_node(s_network, s_node, :cost)
+                        end
+                    end
+                end
+        
+                routing, routing_cost = shortest_path_routing(instance, placement)
+                overall_cost = placement_cost + routing_cost
+                
+                if overall_cost < 999999
+                    position[particle] = placement
+                    personal_best[particle] = placement
+                    personal_best_cost[particle] = overall_cost
+                end
+        
+                if overall_cost < global_best_cost
+                    global_best = position[particle]
+                    global_best_cost = overall_cost
+                    println("We got a new best solution! value $overall_cost")
+                end
 
-            #println("Current position: $(position[particle])")
-            routing, routing_cost = shortest_path_routing(instance, position[particle])
 
-            overall_cost = placement_cost + routing_cost
-            if overall_cost < personal_best_cost[particle]
-                personal_best[particle] = position[particle]
-                personal_best_cost[particle] = overall_cost
-            end
-            if overall_cost < global_best_cost
-                global_best_cost = overall_cost
-                global_best = position[particle]
-                #println("We got a new best solution! value $overall_cost")
+
+            else # we do a normal iteration
+                velocity[particle] = plus( velocity[particle], 
+                                            minus(personal_best[particle], position[particle]), 
+                                            minus(global_best, position[particle]))
+                position[particle], placement_cost = times(position[particle], velocity[particle], instance, s_node_ressources)
+
+                routing, routing_cost = shortest_path_routing(instance, position[particle])
+
+                overall_cost = placement_cost + routing_cost
+
+                if overall_cost < personal_best_cost[particle]
+                    personal_best[particle] = position[particle]
+                    personal_best_cost[particle] = overall_cost
+                end
+                if overall_cost < global_best_cost
+                    global_best_cost = overall_cost
+                    global_best = position[particle]
+                    println("We got a new best solution! value $global_best_cost")
+                end
             end
         end
+
+        iter += 1
+        time_total = time() - time_start
+
     end
 
     #println("Final best solution: $global_best")
-    routing, routing_cost = shortest_path_routing(instance, global_best)
-    final_mapping = Mapping(v_network, s_network, global_best, routing)
+    println("UEPSO finished, best solution: $global_best_cost")
+    #routing, routing_cost_shortest_path = shortest_path_routing(instance, global_best)
+    #final_mapping = Mapping(v_network, s_network, global_best, routing_cost_shortest_path)
 
-    return final_mapping, global_best_cost
+    return global_best_cost
 end
 
 
@@ -112,6 +169,7 @@ function minus(pos1, pos2)
     end
     return res
 end
+
 
 function plus(vel_inertia, vel_pb, vel_gb)
 
@@ -136,7 +194,7 @@ function plus(vel_inertia, vel_pb, vel_gb)
 end
 
 
-function times(position, velocity, instance, forbiden_s_nodes)
+function times(position, velocity, instance, s_node_ressources)
 
     new_placement = []
     placement_cost = 0
@@ -154,8 +212,8 @@ function times(position, velocity, instance, forbiden_s_nodes)
         if new_placement[i] == -1
             keep_on = true
             while keep_on
-                s_node = rand(1:nv(instance.s_network))
-                if s_node ∉ new_placement && get_attribute_node(instance.s_network, s_node, :cap)>0 && s_node ∉ forbiden_s_nodes
+                s_node = get_s_node(s_node_ressources)
+                if s_node ∉ new_placement && get_attribute_node(instance.s_network, s_node, :cap)>0
                     new_placement[i]=s_node
                     keep_on=false
                     placement_cost+= get_attribute_node(instance.s_network, s_node, :cost)
@@ -167,3 +225,16 @@ function times(position, velocity, instance, forbiden_s_nodes)
     return new_placement, placement_cost
 end
 
+
+function get_s_node(s_node_ressources)
+    seuil = rand()
+
+    cumul = 0.0
+    for (i, val) in enumerate(s_node_ressources)
+        cumul += val
+        if cumul > seuil
+            return i
+        end
+    end
+    return 1
+end

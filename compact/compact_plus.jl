@@ -10,7 +10,7 @@ includet("../utils/import_utils.jl")
 
 # ========== CLASSICAL STUFF
 
-function set_up_problem(instance, model)
+function set_up_problem_ff_plus(instance, model)
 
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
@@ -133,14 +133,14 @@ end
 
 
 
-function solve_compact(instance; time_solver = 30, stay_silent=true, linear=false)
+function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, linear=false)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
 
 
     model = Model(CPLEX.Optimizer)
-    set_up_problem(instance, model)
+    set_up_problem_ff_plus(instance, model)
 
     set_time_limit_sec(model, time_solver)
     if stay_silent
@@ -158,8 +158,12 @@ function solve_compact(instance; time_solver = 30, stay_silent=true, linear=fals
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
         println("Infeasible or unfinished: $status")
-        return -999, 0.
+        return -999, objective_bound(model), node_count(model)
     end
+
+    println("nb de noeuds: $(node_count(model))")
+    println("Lower bound: $(objective_bound(model))")
+    println("The objective is : $(objective_value(model))")
 
     #=
     if !stay_silent
@@ -188,63 +192,21 @@ function solve_compact(instance; time_solver = 30, stay_silent=true, linear=fals
     end
     =#
 
-    obj = objective_value(model)
-    println("The objective is : $(objective_value(model))")
-
+    result = objective_value(model)
+    lb = objective_bound(model)
+    nbnodes = node_count(model)
+    return result, lb, nbnodes
 end
 
 
-
-function solve_compact_test(instance; time_limit = 30, stay_silent=true, linear=false)
+function solve_compact_ffplus_linear(instance; time_solver = 30, stay_silent=true, linear=false)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
 
 
     model = Model(CPLEX.Optimizer)
-    set_up_problem(instance, model)
-
-    set_time_limit_sec(model, time_limit)
-    if stay_silent
-        set_silent(model)
-    else
-        print("Starting solving... ")
-    end
-
-    if linear
-        relax_integrality(model)
-    end
-
-    optimize!(model)
-
-    status = primal_status(model)
-    if status != MOI.FEASIBLE_POINT
-        println("Infeasible or unfinished: $status")
-        return -999, 0.,  0
-    end
-
-
-    obj = objective_value(model)
-    time = solve_time(model)
-    nb_nodes = node_count(model)
-
-    return obj, time, nb_nodes
-end
-
-
-
-
-
-function solve_compact_several_sols(instance; time_solver = 30, stay_silent=false, linear=false)
-
-
-
-    v_network = instance.v_network
-    s_network_dir = instance.s_network_dir
-
-
-    model = Model(CPLEX.Optimizer)
-    set_up_problem(instance, model)
+    set_up_problem_ff_plus(instance, model)
 
     set_time_limit_sec(model, time_solver)
     if stay_silent
@@ -253,53 +215,14 @@ function solve_compact_several_sols(instance; time_solver = 30, stay_silent=fals
         print("Starting solving... ")
     end
 
-    if linear
-        relax_integrality(model)
-    end
+    relax_integrality(model)
 
-    
     optimize!(model)
 
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
-        println("Infeasible or unfinished: $status")
-        return -999, 0.
+        println("error! no solution possible...")
+        return -999
     end
-
-
-    set_optimizer_attribute(model, "CPX_PARAM_SOLNPOOLAGAP", 1) # we accept +5 compared to the best
-    set_optimizer_attribute(model, "CPX_PARAM_SOLNPOOLINTENSITY", 2) # Not super aggressive populate, maybe could try 3 ?
-    set_optimizer_attribute(model, "CPX_PARAM_POPULATELIM", 10)
-
-
-    backend_model = unsafe_backend(model);
-    env = backend_model.env;
-    lp = backend_model.lp;
-    N_results = CPLEX.CPXgetsolnpoolnumsolns(env, lp)
-    println("Alors on a $N_results solutions ?")
-
-
-    CPLEX.CPXpopulate(env, lp);
-
-    # Retrieve solutions from the pool    
-    number_sols = CPLEX.CPXgetsolnpoolnumsolns(env, lp)
-    println("Alors on a $number_sols solutions ?")
-
-
-    for i in 1:number_sols
-
-        println("How to check dat value ?")
-
-    end
-
-
-
-    #println("The objective is : $(objective_value(model))")
-
-
-
-
-
+    return (objective_value(model))
 end
-
-

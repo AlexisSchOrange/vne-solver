@@ -6,7 +6,7 @@ includet("optimal_routing.jl")
 
 
 # Implementation of : Virtual Network Embedding Based on the Degree and Clustering Coefficient Information
-
+# I did some slight modifications. It would be better to get a clean version...
 
 function solve_two_stage_DCC(instance)
 
@@ -19,10 +19,10 @@ function solve_two_stage_DCC(instance)
 
     # --- STEP 1 --- RANK THE NODES
 
-    # Virtual node ranking
-    v_nodes_centrality = closeness_centrality(v_network) # here the article does a bit different (but not really useful)
-    most_central_nodes = findmax(v_nodes_centrality)[2]
-    distances = desopo_pape_shortest_paths(instance.v_network, most_central_nodes).dists 
+    # Virtual node ranking: the first one is the most central. Then, it is the closest the it, in term of shortest path.
+    v_nodes_centrality = closeness_centrality(v_network)
+    root = findmax(v_nodes_centrality)[2]
+    distances = desopo_pape_shortest_paths(instance.v_network, root).dists 
     v_nodes_scores = [ v_nodes_centrality[v_node] - distances[v_node] * 10 for v_node in vertices(v_network)]
     v_nodes_ordered = sortperm(v_nodes_scores; rev=true)
     
@@ -50,10 +50,11 @@ function solve_two_stage_DCC(instance)
     v_node_placement[v_nodes_ordered[1]] = s_nodes_ordered[1]
     push!(v_node_placed, v_nodes_ordered[1])
     push!(s_node_used, s_nodes_ordered[1])
-    v_node_placement_cost += get_attribute_node(s_network, v_nodes_ordered[1], :cost)
+    v_node_placement_cost += get_attribute_node(s_network, s_nodes_ordered[1], :cost)
 
     for v_node in v_nodes_ordered[2:end]
-        # find the sum of the distance between a s_node and the v_node_placements of neighbors of v_node that have been placed
+        # find the sum of the distance between a s_node and the v_node_placements of neighbors of v_node that have been placed. 
+        # here is the improvement, in the article they only do one neighbor, based on the tree
         s_nodes_of_neighbors = []
         for neighbor in neighbors(v_network, v_node)
             if neighbor ∈ v_node_placed
@@ -79,16 +80,18 @@ function solve_two_stage_DCC(instance)
             idx_s_node += 1
         end
     end
-    println("v_node_placement of nodes: $v_node_placement")
+    #println("v_node_placement of nodes: $v_node_placement")
 
 
 
     # STEP 3 --- ROUTE THE VIRTUAL EDGES
-    #v_edge_routing, routing_cost = shortest_path_routing(instance, v_node_placement)
-    v_edge_routing, routing_cost = optimal_routing(instance, v_node_placement)
+    v_edge_routing, routing_cost = shortest_path_routing(instance, v_node_placement)
+    #v_edge_routing, routing_cost = optimal_routing(instance, v_node_placement)
 
 
     println("Overall, there is a cost of $routing_cost for routing, $v_node_placement_cost for placement")
+
+    return (v_node_placement_cost + routing_cost)
 end
 
 
