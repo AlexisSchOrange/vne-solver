@@ -10,7 +10,7 @@ includet("../utils/import_utils.jl")
 
 # ========== CLASSICAL STUFF
 
-function set_up_problem_ff(instance, model)
+function set_up_problem_ff_plusplus(instance, model)
 
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
@@ -48,7 +48,7 @@ function set_up_problem_ff(instance, model)
 
     # node capacity : NOT USELESS AHHHHHHHHh
     for s_node in vertices(instance.s_network)
-        @constraint(model, sum(x[v_node, s_node] for v_node in vertices(v_network)) <= sum(s_network[s_node][:cap]))
+        @constraint(model, sum( x[v_node, s_node] for v_node in vertices(v_network)) <= sum(s_network[s_node][:cap]))
     end
 
 
@@ -74,19 +74,60 @@ function set_up_problem_ff(instance, model)
             )
         end
     end
+
     
+    ## Departure constraints    
+    for s_node in vertices(instance.s_network)
+        for v_edge in edges(v_network)
+            @constraint(model, sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node)) 
+                >= x[src(v_edge), s_node])
+        end
+    end
+    
+
+    # Flow continuity constraints
+    for s_node in vertices(s_network)
+        for v_edge in edges(v_network)
+            for s_edge_in in get_in_edges(s_network_dir, s_node)
+                edges_out_to_put = []
+                for s_edge_out in get_out_edges(s_network_dir, s_node) 
+                    if dst(s_edge_out) != src(s_edge_in)
+                        push!(edges_out_to_put, s_edge_out)
+                    end
+                end
+                if degree(s_network, s_node) < 4
+                    @constraint(model, sum(y[v_edge, s_edge_out] for s_edge_out in edges_out_to_put) + x[dst(v_edge), s_node] 
+                        >= y[v_edge, s_edge_in])
+                end
+            end
+        end
+    end
+    
+    # Star capacity constraint
+    for v_node in vertices(v_network)
+        necessary_bw = degree(v_network, v_node) 
+        
+        for s_node in vertices(s_network)
+            s_edges_incident = [get_edge(s_network, s_node, neighbor) for neighbor in neighbors(s_network, s_node)]
+            available_bw = sum(s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident;init=0.)
+            if necessary_bw > available_bw
+                @constraint(model, model[:x][v_node, s_node] == 0)
+            end 
+        end
+    end
+        
 end
 
 
 
-function solve_compact_ff(instance; time_solver = 30, stay_silent=true, linear=false)
+function solve_compact_ffplusplus(instance; time_solver = 30, stay_silent=true, linear=false)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
 
 
     model = Model(CPLEX.Optimizer)
-    set_up_problem_ff(instance, model)
+    set_up_problem_ff_plusplus(instance, model)
 
     set_time_limit_sec(model, time_solver)
     if stay_silent
@@ -145,14 +186,14 @@ function solve_compact_ff(instance; time_solver = 30, stay_silent=true, linear=f
 end
 
 
-function solve_compact_ff_linear(instance; time_solver = 30, stay_silent=true, linear=false)
+function solve_compact_ffplus_linear(instance; time_solver = 30, stay_silent=true, linear=false)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
 
 
     model = Model(CPLEX.Optimizer)
-    set_up_problem_ff(instance, model)
+    set_up_problem_ff_plus(instance, model)
 
     set_time_limit_sec(model, time_solver)
     if stay_silent
@@ -164,7 +205,7 @@ function solve_compact_ff_linear(instance; time_solver = 30, stay_silent=true, l
     relax_integrality(model)
 
     optimize!(model)
-    
+
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
         println("error! no solution possible...")

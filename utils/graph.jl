@@ -1,5 +1,21 @@
 using Graphs, MetaGraphsNext
-includet("path.jl")
+
+# Here, I'm doing some stuff extending the graph package. Also, some function related to paths.
+
+#### Paths ####
+
+struct Path
+    src
+    dst
+    edges
+    cost
+end
+
+function Path()
+    return Path(1, 1, [], 10000)
+end
+
+
 
 
 function Base.show(
@@ -11,6 +27,9 @@ function Base.show(
     )
     return nothing
 end
+
+
+
 
 
 
@@ -124,6 +143,9 @@ function get_edge(g, i, j)
 end 
 
 
+#=
+
+
 # Cette fonction pourrait poser probleme si on met des chemins bizaroides. Pas la plus secure.
 function order_path(s_network, used_edges, start, target)
     unordered_path = copy(used_edges)
@@ -215,7 +237,6 @@ function good_path_of(g, nodes_of_path)
     return Path(start_node, terminus_node, path, cost)
 end
 
-
 # to delete ?
 function path_in_paths(new_path, paths)
     for path in paths
@@ -252,7 +273,7 @@ function find_edge(g, start_node, end_node)
     end
     return edge
 end
-
+=#
 
 function print_graph(mg)
     println("Metagraph ")

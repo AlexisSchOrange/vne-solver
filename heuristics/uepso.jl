@@ -26,13 +26,12 @@ function solve_UEPSO(instance)
 
 
     # PSO parameters
-    nb_particle=100
-    nb_iter=10000
-    time_max = 3600
+    nb_particle=50
+    nb_iter=100
+    time_max = 5
 
     position = []
     velocity = []
-
 
     personal_best = []
     personal_best_cost = []
@@ -148,10 +147,10 @@ function solve_UEPSO(instance)
 
     #println("Final best solution: $global_best")
     println("UEPSO finished, best solution: $global_best_cost")
-    #routing, routing_cost_shortest_path = shortest_path_routing(instance, global_best)
-    #final_mapping = Mapping(v_network, s_network, global_best, routing_cost_shortest_path)
+    routing, routing_cost_shortest_path = shortest_path_routing(instance, global_best)
+    final_mapping = Mapping(v_network, s_network, global_best, routing)
 
-    return global_best_cost
+    return final_mapping, global_best_cost
 end
 
 

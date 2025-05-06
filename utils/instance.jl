@@ -25,7 +25,7 @@ function generate_dir_sn(s_network)
         Dict,
         Dict(:name => s_network[][:name] * "_dir", :type => "Substrate", :directed => true)
     )    
-    a = 33
+
     for s_node in vertices(s_network)
         add_vertex!(s_network_dir, s_node, s_network[s_node])
     end

@@ -218,7 +218,7 @@ function print_solutions(sols, names)
 end
 
 
-function print_polytope_better(hr, names_variables)
+function print_polytope(hr, names_variables)
     println("There are " * string(length(names_variables)) * " variables.\n")
     println("There are " * string(length(hyperplanes(hr))) * " hyperplanes")
 
@@ -252,6 +252,7 @@ function print_polytope_better(hr, names_variables)
     end
 
     println("\n\n There are " * string(length(halfspaces(hr))) * " halfspaces")
+    i_hs = 1
     for h in halfspaces(hr)
         str_right = ""
         str_left = ""
@@ -277,10 +278,10 @@ function print_polytope_better(hr, names_variables)
         end
         print(str_right)
         print(" ≥ ")
-        println(str_left)
+        print(str_left)
+        println("\t($(i_hs))")
+        i_hs += 1
     end
-
-
 
 end
 
@@ -325,6 +326,7 @@ function print_constraints_jump(hr, instance)
 end
 
 
+
 function print_violated_constraints(hr, names, solution) 
 
     println("\n\n There are " * string(length(halfspaces(hr))) * " halfspaces")
@@ -340,11 +342,11 @@ function print_violated_constraints(hr, names, solution)
             print_constraint(h, names)
         end
         
-        println("Ok lets check...")
-        println("Here is my solution: $solution")
-        print("Here is my constraint:  ")
-        print_constraint(h, names)
-        println("So lhs: $(sum_vals), and rhs: $(h.β)")
+        #println("Ok lets check...")
+        #println("Here is my solution: $solution")
+        #print("Here is my constraint:  ")
+        #print_constraint(h, names)
+        #println("So lhs: $(sum_vals), and rhs: $(h.β)")
         
     end
 
