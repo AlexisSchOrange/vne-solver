@@ -1,8 +1,8 @@
 # This pricer aim at giving many columns, on a lot of places of the substrate network, quickly.
 # it's kinda the "pave the graph" problematic.
 
-# PRICERS SEE GHOSTS
-
+# Todo : get several columns, and no need to get the optimal !
+# Todo : update the pricer with dual costs !
 
 includet("../../../utils/import_utils.jl")
 includet("../../../utils/kahip_wrapper.jl")
@@ -159,8 +159,8 @@ end
 function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_network_original_nodes)
 
     set_silent(model)
+    #set_optimizer_attribute(model, "CPXPARAM_MIP_Tolerances_MIPGap", 0.15)
 
-    println("GHOST TIME")
     v_network = subinstance.v_network
     s_network_dir = subinstance.s_network_dir
     s_network = subinstance.s_network
@@ -168,31 +168,9 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
     original_v_network = original_instance.v_network
     original_s_network = original_instance.s_network
 
-    nodes_neighbors = []
-    edges_neighbors = []
-
-    for v_node in vertices(v_network)
-        for v_neighbor in neighbors(original_v_network, v_subgraph.nodes_of_main_graph[v_node])
-            if (v_neighbor ∉ nodes_neighbors) && (v_neighbor ∉ v_subgraph.nodes_of_main_graph)
-               push!(nodes_neighbors, v_neighbor) 
-            end
-
-            if v_neighbor ∉ v_subgraph.nodes_of_main_graph
-                edge_neigh = Dict()
-                edge_neigh[:src] = v_node
-                edge_neigh[:dst] = v_neighbor
-                push!(edges_neighbors, edge_neigh)
-            end
-        end
-    end
-
-
-
     ### Variables
     @variable(model, x[vertices(v_network), vertices(s_network)], binary=true);
     @variable(model, y[edges(v_network), edges(s_network_dir)], binary=true);
-    @variable(model, x_ghost[nodes_neighbors, vertices(s_network)], binary=true);
-    @variable(model, y_ghost[edges_neighbors, edges(s_network_dir)], binary=true);
 
     
 
@@ -215,18 +193,14 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
         @constraint(model, sum(x[v_node, s_node] for s_node in vertices(s_network)) == 1)
     end
 
-    for v_neighbor in nodes_neighbors
-        @constraint(model, sum(x_ghost[v_neighbor, s_node] for s_node in vertices(s_network)) == 1)
-    end
-
     # one to one : one virtual node per substrate node
     for s_node in vertices(s_network)
-        @constraint(model, sum(x[v_node, s_node] for v_node in vertices(v_network)) + sum(x_ghost[v_neighbor, s_node] for v_neighbor in nodes_neighbors) <= 1)
+        @constraint(model, sum(x[v_node, s_node] for v_node in vertices(v_network)) <= 1)
     end
 
     # Node capacities
     for s_node in vertices(s_network)
-        @constraint(model, sum(x[v_node, s_node] for v_node in vertices(v_network)) + sum(x_ghost[v_neighbor, s_node] for v_neighbor in nodes_neighbors) <= s_network[s_node][:cap])
+        @constraint(model, sum(x[v_node, s_node] * v_network[v_node][:dem] for v_node in vertices(v_network)) <= s_network[s_node][:cap])
     end
 
     ## Edges 
@@ -236,8 +210,6 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
         @constraint(model, 
             sum( v_network[src(v_edge), dst(v_edge)][:dem] * (y[v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] + y[v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]  )
                 for v_edge in edges(v_network)) 
-            + sum((y_ghost[v_adjacent_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] + y_ghost[v_adjacent_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]  )
-                for v_adjacent_edge in edges_neighbors) 
             <= 
             s_network[src(s_edge), dst(s_edge)][:cap] )
     end
@@ -254,18 +226,7 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
         end
     end
 
-    # for ghosts edges!
-    for s_node in vertices(s_network)
-        for v_adjacent_edge in edges_neighbors
-            @constraint(model, 
-                x[v_adjacent_edge[:src], s_node] - x_ghost[v_adjacent_edge[:dst], s_node] 
-                ==
-                sum(y_ghost[v_adjacent_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node)) - 
-                    sum(y_ghost[v_adjacent_edge, s_edge] for s_edge in get_in_edges(s_network_dir, s_node))
-            )
-        end
-    end
-
+    
     ## Departure constraints
     
     for s_node in vertices(s_network)
@@ -276,14 +237,6 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
     end
     
     
-    # for ghost edges!
-    for s_node in vertices(s_network)
-        for v_adjacent_edge in edges_neighbors
-            @constraint(model, sum(y_ghost[v_adjacent_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node)) 
-                >= x[v_adjacent_edge[:src], s_node])
-        end
-    end
-
     # Outgoing edges cap: pretty stupid but useful. Still valid...
     j = 0
     for v_node in vertices(v_network)
@@ -297,19 +250,6 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
             end 
         end
     end
-    #= also on ghost nodes lol... xD but not ready yet, cuze I can't get  the degree of those ghostnode (takes like 5 min :S)
-    for v_neighbor in nodes_neighbors
-        for s_node in vertices(s_network)
-            necessary_bw = degree(original_v_network, v_neighbor)
-            s_edges_incident = [get_edge(s_network, s_node, neighbor) for neighbor in neighbors(s_network, s_node)]
-            available_bw = sum(s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident; init=0.0)
-            if necessary_bw > available_bw
-                @constraint(model, model[:x][v_node, s_node] == 0)
-                j+=1
-            end 
-        end
-    end
-    =#
     
     #outgoing: keep in mind the original v_network, and s_network, connectivity, to add some new constraints?
     i=0
@@ -324,23 +264,8 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
             end 
         end
     end
-    println("Well I removed $(i-j) ? not too bad heeh, over $(nv(s_network)*nv(v_network))")
 
-    # ALSO ON GHOST NODES AHHHH
-    for v_neighbor in nodes_neighbors
-        necessary_bw = degree(original_v_network, v_neighbor)
-        for s_node in vertices(s_network)
-            s_edges_incident = [get_edge(original_s_network, s_network_original_nodes[s_node], neighbor) for neighbor in neighbors(original_s_network, s_network_original_nodes[s_node])]
-            available_bw = sum(original_s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident; init=0.0)
-            if necessary_bw > available_bw
-                @constraint(model, x_ghost[v_neighbor, s_node] == 0)
-                i +=1
-            end 
-        end
-    end
-
-    #=
-    #Some weird ass constraint?
+    #=Some weird ass constraint?
     for s_node in vertices(s_network)
         s_edges_incident = [get_edge(original_s_network, s_network_original_nodes[s_node], neighbor) for neighbor in neighbors(original_s_network, s_network_original_nodes[s_node])]
         available_bw = sum(original_s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident; init=0.0)

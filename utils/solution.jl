@@ -12,10 +12,11 @@ end
 
 
 function get_cost_placement(mapping)
-    
+    v_network = mapping.virtual_network
+    s_network = mapping.substrate_network
     node_placement_cost = 0
     for v_node in vertices(v_network)
-        node_placement_cost += s_network[node_placement[v_node]][:cost]
+        node_placement_cost += s_network[mapping.node_placement[v_node]][:cost]
     end
 
     return node_placement_cost
@@ -40,9 +41,11 @@ end
 
 
 function get_cost_routing(mapping)
+    v_network = mapping.virtual_network
+
     edge_routing_cost = 0
     for v_edge in edges(v_network)
-        path = edge_routing[v_edge]
+        path = mapping.edge_routing[v_edge]
         edge_routing_cost += path.cost * v_network[src(v_edge), dst(v_edge)][:dem]
     end
     return edge_routing_cost

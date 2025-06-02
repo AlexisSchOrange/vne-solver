@@ -143,7 +143,7 @@ function get_edge(g, i, j)
 end 
 
 
-#=
+
 
 
 # Cette fonction pourrait poser probleme si on met des chemins bizaroides. Pas la plus secure.
@@ -180,7 +180,7 @@ function order_path(s_network, used_edges, start, target)
     return Path(start, target, ordered_path, path_cost)
 end
 
-
+#=
 
 function get_shortest_paths(g, k)
     # Initialize an empty matrix with zeros

@@ -1,7 +1,4 @@
-# todo for sauron
-# => pave the network with cheapest heuristics
-# => remove all the useless stuff, make the colge as clean as possible for ifip
-# => better paving with cplex : get the right sizes that work better, get several solution at the same time
+# A clean version...
 
 
 using Revise
@@ -13,7 +10,6 @@ using Printf
 
 #general
 includet("../../utils/import_utils.jl")
-#includet("../../utils/visu.jl")
 
 # utils colge
 includet("utils/utils-subgraphdecompo.jl")
@@ -22,12 +18,10 @@ includet("utils/base_relaxation.jl")
 
 # pricers
 includet("pricers/pricer-full.jl")
-#includet("pricers/sn-decompo.jl")
-includet("pricers/sn-decompo-ghosts.jl")
+includet("pricers/sn-decompo.jl")
 
 # end heuristics
-#includet("end-heuristic/basic-ilp.jl")
-includet("end-heuristic/useless-ones.jl")
+includet("end-heuristic/basic-ilp.jl")
 
 
 
@@ -50,6 +44,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
 
+    
     println("Decomposition set: ")
         println("For $v_network, there is $(length(vn_decompo.subgraphs)) subgraphs:")
 
@@ -123,7 +118,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
     nb_max_node_subgraphs = maximum([nv(subgraph.graph) for subgraph in vn_decompo.subgraphs])
 
-    nb_parts = floor(Int, nv(s_network) / (nb_max_node_subgraphs)/2) + 1
+    nb_parts = floor(Int, nv(s_network) / (nb_max_node_subgraphs)/2) + 1 +3
     nb_nodes_per_snsubgraph_pricers = max(22, 2.25 * nb_max_node_subgraphs)
     println("$nb_parts substrate subgraphs to do, with at least $nb_nodes_per_snsubgraph_pricers capacitated nodes...")
     sn_decompo_clusters = get_sn_decompo(s_network, nb_parts, nb_nodes_per_snsubgraph_pricers)
@@ -185,7 +180,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
                 nb_columns += 1
             end
 
-            if reduced_cost>-2.5
+            if reduced_cost>-0.1
                 if pricer_sub_sn ∉ desactivated_pricers
                     nb_desactivated_pricers+=1
                     push!(desactivated_pricers, pricer_sub_sn)
@@ -217,11 +212,11 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
             reason="time limit"
         end
 
-        if nb_columns > 400
+        if nb_columns > 1000
             keep_on = false
         end
     end
-    println("\n Step 2 finished, reason: $reason. By the way: there was $nb_pricers")
+    println("\n Step 2 finished, reason: $reason.")
 
 
 
@@ -235,7 +230,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     for subgraph in vn_decompo.subgraphs
         pricers_full[subgraph] = set_up_pricer(instance, subgraph)
     end
-    keep_on = false
+    keep_on = true
     reason = "I don't know"
     while keep_on
         nb_iter += 1
@@ -327,7 +322,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
     # ======= END HEURISTIC STUFF ======= #
 
-    basic_heuristic_useless(instance, vn_decompo, master_problem, time_end_solving)
+    basic_heuristic(instance, vn_decompo, master_problem, time_end_solving)
 
     return 
 end

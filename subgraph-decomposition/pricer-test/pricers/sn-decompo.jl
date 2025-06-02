@@ -159,7 +159,6 @@ end
 function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_network_original_nodes)
 
     set_silent(model)
-    #set_optimizer_attribute(model, "CPXPARAM_MIP_Tolerances_MIPGap", 0.15)
 
     v_network = subinstance.v_network
     s_network_dir = subinstance.s_network_dir
@@ -245,7 +244,7 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
             s_edges_incident = [get_edge(s_network, s_node, neighbor) for neighbor in neighbors(s_network, s_node)]
             available_bw = sum(s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident; init=0.0)
             if necessary_bw > available_bw
-                @constraint(model, model[:x][v_node, s_node] == 0)
+                @constraint(model, x[v_node, s_node] == 0)
                 j+=1
             end 
         end
@@ -259,7 +258,7 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
             s_edges_incident = [get_edge(original_s_network, s_network_original_nodes[s_node], neighbor) for neighbor in neighbors(original_s_network, s_network_original_nodes[s_node])]
             available_bw = sum(original_s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident; init=0.0)
             if necessary_bw > available_bw
-                @constraint(model, model[:x][v_node, s_node] == 0)
+                @constraint(model, x[v_node, s_node] == 0)
                 i +=1
             end 
         end

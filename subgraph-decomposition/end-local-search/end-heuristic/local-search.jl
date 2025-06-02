@@ -1,15 +1,92 @@
 
+using Revise
 
-#using Revise, JuMP, CPLEX, Gurobi
-using Revise, JuMP, CPLEX
+using Graphs, MetaGraphsNext
+using JuMP, CPLEX
 
-includet("../utils/import_utils.jl")
 
+
+
+function local_search(instance, vn_decompo, solution)
+
+    s_network = instance.s_network 
+    s_network_dir = instance.s_network_dir
+    v_network = instance.v_network
+
+    time0 = time()
+    iter = 1
+    iter_max = 100
+    i_subgraph = 1
+    stop_maybe = 0
+    keep_on = true
+    nb_subgraph = length(vn_decompo.subgraphs)
+
+    best_sol_val = get_cost_placement(solution) + get_cost_routing(solution)
+    best_sol_placement = solution.node_placement
+
+    println("Starting local search...")
+
+    while keep_on
+        println("New iteration...")
+        subgraph = vn_decompo.subgraphs[i_subgraph]
+
+        # get node_placement, not taking into account the one subgraph
+        placement_restriction = Dict()
+        for v_node in vertices(v_network)
+            if !(v_node in subgraph.nodes_of_main_graph)
+                placement_restriction[v_node] = best_sol_placement[v_node]
+            end
+        end
+
+        model = Model(CPLEX.Optimizer)
+        set_up_problem_restricted(instance, model, placement_restriction)
+        set_silent(model)
+        set_time_limit_sec(model, 10) # 10 s should be enough? IDK with all the routing
+        optimize!(model)
+
+        sol_val = objective_value(model)
+
+        if sol_val < best_sol_val
+            println("New best sol found! $sol_val")
+            best_sol_val = sol_val
+            stop_maybe = 0
+
+            # Get the solution
+            best_sol_placement = []
+            x_values = value.(model[:x])        
+            for v_node in vertices(v_network)
+                for s_node in vertices(s_network)
+                    if x_values[v_node, s_node] > 0.01
+                        push!(best_sol_placement, s_node)
+                    end
+                end
+            end
+    
+        else
+            stop_maybe += 1
+        end
+
+
+        i_subgraph += 1
+        if i_subgraph > nb_subgraph
+            i_subgraph = 1
+        end
+
+        if (iter > iter_max) || (stop_maybe > nb_subgraph)
+            keep_on = false
+        end
+    end
+
+
+    println("At the end, the best solution found is $(best_sol_val)")
+    time_local_search = time() - time0
+    println("Took $time_local_search in local search")
+end
 
 
 
 # ========== CLASSICAL STUFF
-function set_up_problem_ff_plus(instance, model)
+function set_up_problem_restricted(instance, model, placement_restriction)
 
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
@@ -50,6 +127,10 @@ function set_up_problem_ff_plus(instance, model)
         @constraint(model, sum( x[v_node, s_node] for v_node in vertices(v_network)) <= sum(s_network[s_node][:cap]))
     end
 
+    # respect the placement_restriction pleaseee
+    for (v_node, s_node) in placement_restriction
+        @constraint(model, x[v_node, s_node] == 1)
+    end
 
     ##--- Edges 
     
@@ -100,98 +181,3 @@ function set_up_problem_ff_plus(instance, model)
         
 end
 
-
-
-function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, linear=false)
-    
-    v_network = instance.v_network
-    s_network_dir = instance.s_network_dir
-
-
-    model = Model(CPLEX.Optimizer)
-    set_up_problem_ff_plus(instance, model)
-
-    set_time_limit_sec(model, time_solver)
-    if stay_silent
-        set_silent(model)
-    else
-        print("Starting solving... ")
-    end
-
-    if linear
-        relax_integrality(model)
-    end
-
-    optimize!(model)
-
-    status = primal_status(model)
-    if status != MOI.FEASIBLE_POINT
-        println("Infeasible or unfinished: $status")
-        return -999, objective_bound(model), node_count(model)
-    end
-
-    println("nb de noeuds: $(node_count(model))")
-    println("Lower bound: $(objective_bound(model))")
-    println("The objective is : $(objective_value(model))")
-
-    #=
-    if !stay_silent
-
-        x_values = value.(model[:x])
-        y_values = value.(model[:y])
-    
-        println("Node placement:")
-        for v_node in vertices(v_network)
-            for s_node in vertices(s_network_dir)
-                if x_values[v_node, s_node] > 0.01
-                    println("$v_node is placed on $s_node")
-                end
-            end
-        end
-        println("\nEdge routing:")
-        for v_edge in edges(v_network)
-            print("Routing of $v_edge : ")
-            for s_edge in edges(s_network_dir)
-                if y_values[v_edge, s_edge] > 0.01
-                    print(" $s_edge")
-                end
-            end
-            print("\n")
-        end
-    end
-    =#
-
-    result = objective_value(model)
-    lb = objective_bound(model)
-    nbnodes = node_count(model)
-    return result, lb, nbnodes
-end
-
-
-function solve_compact_ffplus_linear(instance; time_solver = 30, stay_silent=true, linear=false)
-    
-    v_network = instance.v_network
-    s_network_dir = instance.s_network_dir
-
-
-    model = Model(CPLEX.Optimizer)
-    set_up_problem_ff_plus(instance, model)
-
-    set_time_limit_sec(model, time_solver)
-    if stay_silent
-        set_silent(model)
-    else
-        print("Starting solving... ")
-    end
-
-    relax_integrality(model)
-
-    optimize!(model)
-
-    status = primal_status(model)
-    if status != MOI.FEASIBLE_POINT
-        println("error! no solution possible...")
-        return -999
-    end
-    return (objective_value(model))
-end

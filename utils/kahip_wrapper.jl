@@ -15,13 +15,14 @@ includet("import_utils.jl")
 
 
 function partition_kahip(g, nb_clusters, imbalance)
+
+    println("CAREFUL: YOU ARE USING KAHIP. \nTHIS SHOULD NOT BE.")
     xadj, adjncy = graph_to_csr(g)
 
+    # adapt it for c, because they start indexing at 0 lol
     for i in 1:length(adjncy)
         adjncy[i] = adjncy[i] - 1
     end
-
-    # adapt it for c, because they start indexing at 0 lol
 
     edgecut, part = simplified_kaffpa(xadj, adjncy, nb_clusters, imbalance)
 

@@ -123,7 +123,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
     nb_max_node_subgraphs = maximum([nv(subgraph.graph) for subgraph in vn_decompo.subgraphs])
 
-    nb_parts = floor(Int, nv(s_network) / (nb_max_node_subgraphs)/2) + 1
+    nb_parts = floor(Int, nv(s_network) / (nb_max_node_subgraphs)/2) + 1 + 4
     nb_nodes_per_snsubgraph_pricers = max(22, 2.25 * nb_max_node_subgraphs)
     println("$nb_parts substrate subgraphs to do, with at least $nb_nodes_per_snsubgraph_pricers capacitated nodes...")
     sn_decompo_clusters = get_sn_decompo(s_network, nb_parts, nb_nodes_per_snsubgraph_pricers)
@@ -185,7 +185,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
                 nb_columns += 1
             end
 
-            if reduced_cost>-2.5
+            if reduced_cost>-1.
                 if pricer_sub_sn ∉ desactivated_pricers
                     nb_desactivated_pricers+=1
                     push!(desactivated_pricers, pricer_sub_sn)
@@ -235,7 +235,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     for subgraph in vn_decompo.subgraphs
         pricers_full[subgraph] = set_up_pricer(instance, subgraph)
     end
-    keep_on = false
+    keep_on = true
     reason = "I don't know"
     while keep_on
         nb_iter += 1

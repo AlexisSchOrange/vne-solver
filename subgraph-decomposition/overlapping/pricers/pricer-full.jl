@@ -18,7 +18,6 @@ function set_up_pricer(instance, subgraph)
     
     #### Model
     model = Model(CPLEX.Optimizer)
-    #set_attribute(model, "CPX_PARAM_EPINT", 1e-8)
 
     ### Variables
     @variable(model, x[v_node in vertices(subgraph.graph), s_node in vertices(s_network)], binary=true);
@@ -44,7 +43,7 @@ function set_up_pricer(instance, subgraph)
     # node capacity
     for s_node in vertices(s_network)
         @constraint(model, 
-            sum( subgraph.graph[v_node][:dem] * x[v_node, s_node] 
+            sum( x[v_node, s_node] 
                 for v_node in vertices(subgraph.graph) ) 
             <= 
             instance.s_network[s_node][:cap] )
@@ -56,7 +55,7 @@ function set_up_pricer(instance, subgraph)
     # edge capacity (undirected version)
     for s_edge in edges(s_network)
         @constraint(model, 
-            sum( subgraph.graph[src(v_edge), dst(v_edge)][:dem] * (y[v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] + y[v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]) 
+            sum( (y[v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] + y[v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]) 
                 for v_edge in edges(subgraph.graph)) 
             <= 
             s_network[src(s_edge), dst(s_edge)][:cap] )
@@ -104,18 +103,25 @@ function update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limi
 
     model = pricer.model
     subgraph = pricer.subgraph
-    v_network = instance.v_network
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
 
+    coeff_v_nodes = [1. for i in 1:nv(subgraph.graph)]
+    for v_node in vertices(subgraph.graph)
+        v_node_original = subgraph.nodes_of_main_graph[v_node]
+        if v_node_original in keys(vn_decompo.overlapping_nodes)
+            coeff_v_nodes[v_node] = 1/length(vn_decompo.overlapping_nodes[v_node_original])
+        end
+    end
+
     ### Objective
     placement_cost = @expression(model, 
-        sum( ( s_network[s_node][:cost] - dual_costs.capacity_s_node[s_node] ) * subgraph.graph[v_node][:dem] * model[:x][v_node, s_node] 
+        sum( ( s_network[s_node][:cost] - dual_costs.capacity_s_node[s_node] ) * coeff_v_nodes[v_node] * model[:x][v_node, s_node] 
             for v_node in vertices(subgraph.graph) for s_node in vertices(s_network) ))
 
     routing_cost = @expression(model, sum( 
         ( s_network[src(s_edge), dst(s_edge)][:cost] - dual_costs.capacity_s_edge[s_edge] ) 
-        * subgraph.graph[src(v_edge), dst(v_edge)][:dem] * (model[:y][v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] + model[:y][v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))])
+        *  (model[:y][v_edge, s_edge] + model[:y][v_edge, get_reverse_edge(s_network_dir, s_edge)])
                 for v_edge in edges(subgraph.graph) for s_edge in edges(s_network) ))
 
 
@@ -129,14 +135,14 @@ function update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limi
                 v_node_subgraph = vn_decompo.v_nodes_assignment[src(connecting_edge)][subgraph]
                 add_to_expression!(
                     flow_conservation_cost, 
-                    -dual_costs.flow_conservation[connecting_edge][s_node] , 
+                    -dual_costs.flow_conservation[connecting_edge][s_node] * coeff_v_nodes[v_node_subgraph], 
                     model[:x][v_node_subgraph, s_node])
             end
             if subgraph ∈ keys(vn_decompo.v_nodes_assignment[dst(connecting_edge)])
                 v_node_subgraph = vn_decompo.v_nodes_assignment[dst(connecting_edge)][subgraph]
                 add_to_expression!(
                     flow_conservation_cost, 
-                    +dual_costs.flow_conservation[connecting_edge][s_node], 
+                    +dual_costs.flow_conservation[connecting_edge][s_node] * coeff_v_nodes[v_node_subgraph], 
                     model[:x][v_node_subgraph, s_node])
             end
         end
@@ -151,18 +157,53 @@ function update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limi
                 v_node_subgraph = vn_decompo.v_nodes_assignment[src(connecting_edge)][subgraph]
                 add_to_expression!(
                     departure_costs, 
-                    -dual_costs.departure[connecting_edge][s_node], 
+                    -dual_costs.departure[connecting_edge][s_node] * coeff_v_nodes[v_node_subgraph], 
                     model[:x][v_node_subgraph,s_node])
             end
         end
     end
 
 
+    # overlapping
+    overlapping_cost = AffExpr(0.)
+    for v_node_overlapping in keys(vn_decompo.overlapping_nodes)
+        if subgraph in vn_decompo.overlapping_nodes[v_node_overlapping]
+            v_node_subgraph = vn_decompo.v_nodes_assignment[v_node_overlapping][subgraph]
+            for (i_subgraph_overlapping, subgraph_overlapping) in enumerate(vn_decompo.overlapping_nodes[v_node_overlapping])
+                if subgraph_overlapping == subgraph
+                    for s_node in vertices(s_network)
+                        # rhs
+                        add_to_expression!(
+                            overlapping_cost, 
+                            dual_costs.overlapping[s_node][v_node_overlapping][i_subgraph_overlapping], 
+                            model[:x][v_node_subgraph, s_node])
+
+                        #lhs
+                        if i_subgraph_overlapping == length(vn_decompo.overlapping_nodes[v_node_overlapping])
+                            add_to_expression!(
+                                overlapping_cost, 
+                                dual_costs.overlapping[s_node][v_node_overlapping][1], 
+                                -model[:x][v_node_subgraph, s_node])
+                        else
+                            add_to_expression!(
+                                overlapping_cost, 
+                                dual_costs.overlapping[s_node][v_node_overlapping][i_subgraph_overlapping+1], 
+                                -model[:x][v_node_subgraph, s_node])
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+
+    
     @objective(model, Min, 
             -dual_costs.convexity[subgraph]
             + placement_cost + routing_cost 
             + flow_conservation_cost 
-            + departure_costs);
+            + departure_costs
+            + overlapping_cost );
 
     set_silent(model)
     set_time_limit_sec(model, time_limit)
@@ -179,7 +220,7 @@ function update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limi
         for s_node in vertices(s_network)
             if x_values[v_node, s_node] > 0.99
                 append!(node_placement, s_node)
-                cost_of_column += subgraph.graph[v_node][:dem] * pricer.s_network[s_node][:cost]
+                cost_of_column += pricer.s_network[s_node][:cost] * coeff_v_nodes[v_node]
             end
         end
     end
@@ -194,7 +235,7 @@ function update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limi
         for s_edge in edges(s_network_dir)
             if y_values[v_edge, s_edge] > 0.99
                 push!(used_edges, s_edge)
-                cost_of_column += subgraph.graph[src(v_edge), dst(v_edge)][:dem] * 1 * s_network_dir[src(s_edge), dst(s_edge)][:cost]
+                cost_of_column += s_network_dir[src(s_edge), dst(s_edge)][:cost]
             end
         end
         edge_routing[v_edge] = order_path(s_network_dir, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 

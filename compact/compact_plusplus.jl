@@ -95,7 +95,7 @@ function set_up_problem_ff_plusplus(instance, model)
                         push!(edges_out_to_put, s_edge_out)
                     end
                 end
-                if degree(s_network, s_node) < 4
+                if degree(s_network, s_node) < 3
                     @constraint(model, sum(y[v_edge, s_edge_out] for s_edge_out in edges_out_to_put) + x[dst(v_edge), s_node] 
                         >= y[v_edge, s_edge_in])
                 end
