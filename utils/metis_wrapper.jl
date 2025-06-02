@@ -2,8 +2,8 @@ using Base.Libc
 
 # Path to the KaHIP shared library
 using Libdl
-const libmetis = Libdl.dlopen("/usr/lib/x86_64-linux-gnu/libmetis.so.5")
-
+using METIS_jll
+Libdl.dlopen(METIS_jll.libmetis_path)
 #using CEnum
 
 #const idx_t = Int32
@@ -98,7 +98,7 @@ function metis_kway(n::Int32,
     options = Vector{Int32}(undef, METIS_NOPTIONS)
 
     ccall(
-        (:METIS_SetDefaultOptions, "libmetis.so.5"),
+        (:METIS_SetDefaultOptions, METIS_jll.libmetis),
         Cvoid,
         (Ptr{Int32},),
         options
@@ -121,7 +121,7 @@ function metis_kway(n::Int32,
 
 
     status = ccall(
-        (:METIS_PartGraphKway, "libmetis.so.5"),
+        (:METIS_PartGraphKway, METIS_jll.libmetis),
         Int32,
         (Ptr{Int32}, Ptr{Int32}, Ptr{Int32}, Ptr{Int32},
         Ptr{Int32}, Ptr{Int32}, Ptr{Int32}, Ptr{Int32},

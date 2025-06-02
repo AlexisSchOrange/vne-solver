@@ -107,7 +107,7 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
 
-
+    time_start = time()
     model = Model(CPLEX.Optimizer)
     set_up_problem_ff_plus(instance, model)
 
@@ -127,7 +127,7 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
         println("Infeasible or unfinished: $status")
-        return -999, objective_bound(model), node_count(model)
+        return -999., objective_bound(model), node_count(model)
     end
 
     println("nb de noeuds: $(node_count(model))")
@@ -164,7 +164,8 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
     result = objective_value(model)
     lb = objective_bound(model)
     nbnodes = node_count(model)
-    return result, lb, nbnodes
+    time_overlal = time() - time_start
+    return result, lb, nbnodes, time_overlal
 end
 
 

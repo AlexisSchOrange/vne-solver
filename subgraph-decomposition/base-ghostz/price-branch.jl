@@ -24,7 +24,7 @@ includet("end-heuristic/basic-ilp.jl")
 
 
 
-function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning = [], nb_part = -1)
+function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning = [], nb_part = -1, type_pricer="normal")
 
     println("Starting...")
     time_beginning = time()
@@ -80,7 +80,13 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
     pricers_full = Dict()
     for subgraph in vn_decompo.subgraphs
-        pricers_full[subgraph] = set_up_pricer(instance, subgraph)
+        if type_pricer == "ghost"
+            pricers_full[subgraph] = set_up_pricer_ghost(instance, subgraph)
+        elseif type_pricer == "constraint"
+            pricer_full[subgraph] = set_up_pricer_cons(instance, subgraph)
+        else
+            pricer_full[subgraph] = set_up_pricer(instance, subgraph)
+        end
     end
     keep_on = true
     reason = "I don't know"
