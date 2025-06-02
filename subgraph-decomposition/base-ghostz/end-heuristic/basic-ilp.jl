@@ -24,7 +24,7 @@ function basic_heuristic(instance, vn_decompo, master_problem, time_max)
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
         println("Infeasible or unfinished: $status")
-        return -999
+        return -999.
     end
     println("Optimal solution : $(objective_value(model))")
     return objective_value(model)

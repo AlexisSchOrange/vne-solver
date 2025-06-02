@@ -170,7 +170,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
     # ======= END HEURISTIC STUFF ======= #
 
-    #basic_heuristic(instance, vn_decompo, master_problem, time_end_solving)
+    heur_sol = basic_heuristic(instance, vn_decompo, master_problem, time_end_solving)
 
 
     result = Dict()
@@ -178,7 +178,8 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     result["CG_val"] = cg_value
     result["LG_val"] = lower_bound
     result["nb_iter"] = nb_iter
-    result["nb_col"] = nb_col
+    result["nb_col"] = nb_columns
+    result["heuristic_res"] = heur_sol
 
     return result
 end
