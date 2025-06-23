@@ -185,7 +185,7 @@ function solve_subgraph_decompo(instance; time_max = 3600, v_node_partitionning 
     result["LG_val"] = round(lower_bound, digits=2)
     result["nb_iter"] = nb_iter
     result["nb_col"] = nb_columns
-    result["heuristic_res"] = round(heur_sol, digits=2)
+    result["heuristic_res"] = round(val, digits=2)
     result["nb_valid_cols"] = nb_valid_cols
     result["mean_vals"] = round(mean_vals, digits=2)
     result["min_vals"] = round(min_vals, digits=2)
