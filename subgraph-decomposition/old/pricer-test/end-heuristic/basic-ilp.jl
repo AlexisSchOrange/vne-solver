@@ -7,22 +7,15 @@ using JuMP, CPLEX
 
 
 function basic_heuristic(instance, vn_decompo, master_problem, time_max)
-    
-    v_network = instance.v_network
-    s_network = instance.s_network
-    s_network_dir = instance.s_network_dir
 
 
     model = Model(CPLEX.Optimizer)
     set_up_problem(instance, vn_decompo, model)
     set_time_limit_sec(model, time_max)
     
-    
-    lambdas = Dict()
     for subgraph in vn_decompo.subgraphs
         for column in master_problem.columns[subgraph]
-            lambda = add_column_ip(model, vn_decompo, instance, subgraph, column)
-            lambdas[column] = lambda
+            add_column_ip(model, vn_decompo, instance, subgraph, column)
         end
     end
 
@@ -31,49 +24,10 @@ function basic_heuristic(instance, vn_decompo, master_problem, time_max)
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
         println("Infeasible or unfinished: $status")
-        return -999., nothing
+        return -999
     end
     println("Optimal solution : $(objective_value(model))")
-
-    # ---- GET SOLUTION
-    node_placement = zeros(Integer, nv(instance.v_network))
-    edge_routing = Dict()
-
-    # Column placement and routing
-    for subgraph in vn_decompo.subgraphs
-        for column in master_problem.columns[subgraph]
-            if value(lambdas[column]) > 0.9 # This column is selected: get the mapping :3
-                for v_node in vertices(subgraph.graph)
-                    original_node = subgraph.nodes_of_main_graph[v_node]
-                    node_placement[original_node] = column.mapping.node_placement[v_node]
-                end
-                for v_edge in edges(subgraph.graph)
-                    original_src = subgraph.nodes_of_main_graph[src(v_edge)]
-                    original_dst = subgraph.nodes_of_main_graph[dst(v_edge)]
-                    original_edge = get_edge(v_network, original_src, original_dst)
-                    edge_routing[original_edge] = column.mapping.edge_routing[v_edge]
-                end
-            end
-        end
-    end
-
-    # Master problem routing
-    y_values = value.(model[:y])
-    for v_edge in vn_decompo.v_edges_master
-        used_edges = []
-        for s_edge in edges(s_network_dir)
-            if y_values[v_edge, s_edge] > 0.9
-                push!(used_edges, s_edge)
-            end
-        end
-        edge_routing[v_edge] = order_path(s_network_dir, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 
-    end
-
-
-    mapping = Mapping(v_network, s_network, node_placement, edge_routing)
-
-    return objective_value(model), mapping
-    
+    return objective_value(model)
 end
 
 
@@ -246,10 +200,7 @@ function add_column_ip(model, vn_decompo, instance, subgraph, column)
                 1 )
 
         end
-    end    
-    
-    return lambda
-
+    end
 
 end
 

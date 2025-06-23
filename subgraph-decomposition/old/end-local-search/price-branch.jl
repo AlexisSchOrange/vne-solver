@@ -1,7 +1,4 @@
-# todo for sauron
-# => pave the network with cheapest heuristics
-# => remove all the useless stuff, make the colge as clean as possible for ifip
-# => better paving with cplex : get the right sizes that work better, get several solution at the same time
+# A clean version...
 
 
 using Revise
@@ -13,12 +10,12 @@ using Printf
 
 #general
 includet("../../utils/import_utils.jl")
-#includet("../../utils/visu.jl")
 
 # utils colge
 includet("utils/utils-subgraphdecompo.jl")
 includet("utils/partition-vn.jl")
 includet("utils/base_relaxation.jl")
+includet("utils/checkers.jl")
 
 # pricers
 includet("pricers/pricer-full.jl")
@@ -26,7 +23,7 @@ includet("pricers/sn-decompo.jl")
 
 # end heuristics
 includet("end-heuristic/basic-ilp.jl")
-
+includet("end-heuristic/local-search.jl")
 
 
 function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning = [], nb_part = -1)
@@ -85,7 +82,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     lower_bound = get_base_relaxation(instance)
     println("Bound obtained: $lower_bound\n\n")
 
-    #= ====== STEP 1: paving with ILP
+    # ====== STEP 1: paving with ILP
     println("------- Part 1: Initialization")
     print("Paving the substrate network... ")
     dual_costs = get_empty_duals(instance, vn_decompo)
@@ -100,7 +97,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
         for problem in init_problems[vn_subgraph]
             update_pricer_sn_decompo(vn_decompo, problem, dual_costs) #ugh
             column, true_cost, reduced_cost = solve_pricers_sn_decompo(problem, time_limit=10)
-            if column !== nothing && true_cost < 9999999
+            if column !== nothing && true_cost < 99999
                 add_column(master_problem, instance, problem.vn_subgraph, column, true_cost)
                 nb_columns += 1
                 nb_col_cur+=1
@@ -111,7 +108,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     println("Initialization complete, $nb_columns columns found\n\n")
   
 
-    =#
+
 
 
 
@@ -206,7 +203,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
                 keep_on = false
                 reason="changing to full solving to get better columns"
             end
-            if nb_columns>200*length(vn_decompo.subgraphs)
+            if nb_columns>150*length(vn_decompo.subgraphs)
                 keep_on=false
                 reason="too many columns generated already..."
             end
@@ -301,12 +298,36 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
             reason="time limit"
         end
 
+        
+
 
     end
 
         
+    # HUM 
+    nb_usable  = 0
+    println("Well, we finished the CG. Now let's see how much we are cooked.")
+    for subgraph in vn_decompo.subgraphs
+        for column in master_problem.columns[subgraph]
+            usable_column = false
+            if check_column_cons(column.mapping, subgraph, instance)
+                if check_column_ghost(column.mapping, subgraph, instance)
+                    #check_column_ghost_trois(sub_mapping, vn_subgraph, instance)
+                    if check_column_ghost_larger(column.mapping, subgraph, instance)
+                        usable_column = true
+                    end
+                end
+            end
+            if usable_column
+                nb_usable += 1
+            end
+        end
+    end
+
+    println("WELL THERE IS $nb_usable useful OVER $nb_columns, HAPPY NOW???")
 
 
+    
     print("\n==================== CG finished ====================\nReason: $reason \n")
     println("Time in MP: $(round(time_master; digits=3)) , time in SP: $(round(time_subproblems; digits=3)), time overall: $(round(time_overall; digits=3))")
     println("$nb_iter iters, final value: $(round(cg_value; digits=3))")
@@ -316,9 +337,10 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
     # ======= END HEURISTIC STUFF ======= #
 
-    result = basic_heuristic(instance, vn_decompo, master_problem, time_end_solving)
+    solution = basic_heuristic(instance, vn_decompo, master_problem, time_end_solving)
+    local_search(instance, vn_decompo, solution)
 
-    return result, nb_part, cg_value, lower_bound, nb_columns, nb_iter
+    return 
 end
 
 

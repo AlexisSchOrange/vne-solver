@@ -55,7 +55,7 @@ function set_up_pricer(instance, subgraph)
     # edge capacity (undirected version)
     for s_edge in edges(s_network)
         @constraint(model, 
-            sum( (y[v_edge, get_edge(s_network_dir, src(s_edge), dst(s_edge))] + y[v_edge, get_edge(s_network_dir, dst(s_edge), src(s_edge))]) 
+        sum( (y[v_edge, s_edge] + y[v_edge, get_reverse_edge(s_network_dir, s_edge)]  )
                 for v_edge in edges(subgraph.graph)) 
             <= 
             s_network[src(s_edge), dst(s_edge)][:cap] )
@@ -191,8 +191,8 @@ function set_up_pricer_cons(instance, subgraph)
         s_edges_incident = [get_edge(s_network, s_node, neighbor) for neighbor in neighbors(s_network, s_node)]
         available_bw = sum(s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident;init=0.0)
 
-        @constraint(model, sum(y[v_edge, s_edge] for s_edge in get_in_edges(s_network, s_node) for v_edge in edges(subgraph.graph))
-                                + sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network, s_node) for v_edge in edges(subgraph.graph)) 
+        @constraint(model, sum(y[v_edge, s_edge] for s_edge in get_in_edges(s_network_dir, s_node) for v_edge in edges(subgraph.graph))
+                                + sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node) for v_edge in edges(subgraph.graph)) 
                                 + sum(x[v_node, s_node] * (degree(original_v_network, subgraph.nodes_of_main_graph[v_node]) - degree(subgraph.graph, v_node)) for v_node in vertices(subgraph.graph)) 
                                     <= available_bw)
     end
@@ -253,20 +253,27 @@ function set_up_pricer_ghost(instance, subgraph)
         @constraint(model, sum(x[v_node, s_node] for s_node in vertices(s_network)) == 1)
     end
 
-    # if one to one : one virtual node per substrate node
+    
+    for v_neighbor in ghost_nodes
+        @constraint(model, sum(x_ghost[v_neighbor, s_node] for s_node in vertices(s_network)) == 1)
+    end
+    
+    #= if one to one : one virtual node per substrate node
     for s_node in vertices(s_network)
         @constraint(model, sum(x[v_node, s_node] for v_node in vertices(subgraph.graph)) <= 1)
     end
-
+    =#
 
 
     # node capacity
     for s_node in vertices(s_network)
         @constraint(model, 
             sum( x[v_node, s_node] 
-                for v_node in vertices(subgraph.graph) ) 
+                for v_node in vertices(subgraph.graph))
+            + sum( x_ghost[v_neighbor, s_node]
+                for v_neighbor in ghost_nodes)
             <= 
-            instance.s_network[s_node][:cap] )
+            s_network[s_node][:cap] )
     end
 
 

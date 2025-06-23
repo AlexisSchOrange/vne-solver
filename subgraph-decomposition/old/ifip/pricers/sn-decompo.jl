@@ -159,6 +159,7 @@ end
 function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_network_original_nodes)
 
     set_silent(model)
+    #set_optimizer_attribute(model, "CPXPARAM_MIP_Tolerances_MIPGap", 0.15)
 
     v_network = subinstance.v_network
     s_network_dir = subinstance.s_network_dir
@@ -236,47 +237,33 @@ function set_up_subpb(model, subinstance, original_instance, v_subgraph, s_netwo
     end
     
     
-    # Outgoing edges cap: pretty stupid but useful. Still valid...
-    j = 0
+    # Outgoing edges cap: pretty stupid but useful. 
     for v_node in vertices(v_network)
         for s_node in vertices(s_network)
-            necessary_bw = degree(v_network, v_node)
+            v_edges_incident = [get_edge(v_network, v_node, neighbor) for neighbor in neighbors(v_network, v_node)]
+            necessary_bw = 0 + sum(v_network[src(v_edge), dst(v_edge)][:dem] for v_edge in v_edges_incident; init=0.0)
             s_edges_incident = [get_edge(s_network, s_node, neighbor) for neighbor in neighbors(s_network, s_node)]
-            available_bw = sum(s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident; init=0.0)
+            available_bw = 0 +sum(s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident; init=0.0)
             if necessary_bw > available_bw
-                @constraint(model, x[v_node, s_node] == 0)
-                j+=1
+                @constraint(model, model[:x][v_node, s_node] == 0)
             end 
         end
     end
     
-    #outgoing: keep in mind the original v_network, and s_network, connectivity, to add some new constraints?
-    i=0
+    # outgoing: keep in mind the original v_network, and s_network, connectivity, to add some new constraints?
+    #=
     for v_node in vertices(v_network)
-        necessary_bw = degree(original_v_network, v_subgraph.nodes_of_main_graph[v_node])
         for s_node in vertices(s_network)
+            necessary_bw = degree(original_v_network, v_subgraph.nodes_of_main_graph[v_node])
             s_edges_incident = [get_edge(original_s_network, s_network_original_nodes[s_node], neighbor) for neighbor in neighbors(original_s_network, s_network_original_nodes[s_node])]
             available_bw = sum(original_s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident; init=0.0)
             if necessary_bw > available_bw
-                @constraint(model, x[v_node, s_node] == 0)
-                i +=1
+                @constraint(model, model[:x][v_node, s_node] == 0)
             end 
         end
     end
-
-    println("Well I removed $(i-j) ? not too bad heeh, over $(nv(s_network)*nv(v_network))")
-
-    #=Some weird ass constraint?
-    for s_node in vertices(s_network)
-        s_edges_incident = [get_edge(original_s_network, s_network_original_nodes[s_node], neighbor) for neighbor in neighbors(original_s_network, s_network_original_nodes[s_node])]
-        available_bw = sum(original_s_network[src(s_edge), dst(s_edge)][:cap] for s_edge in s_edges_incident; init=0.0)
-
-        @constraint(model, sum(y[v_edge, s_edge] for s_edge in get_in_edges(s_network, s_node) for v_edge in edges(v_network))
-                                + sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network, s_node) for v_edge in edges(v_network)) 
-                                + sum(x[v_node, s_node] * (degree(original_v_network, v_subgraph.nodes_of_main_graph[v_node]) - degree(v_network, v_node)) for v_node in vertices(v_network)) 
-                                    <= available_bw)
-    end
     =#
+    
     
 end
 

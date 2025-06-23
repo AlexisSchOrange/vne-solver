@@ -85,7 +85,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     lower_bound = get_base_relaxation(instance)
     println("Bound obtained: $lower_bound\n\n")
 
-    #= ====== STEP 1: paving with ILP
+    # ====== STEP 1: paving with ILP
     println("------- Part 1: Initialization")
     print("Paving the substrate network... ")
     dual_costs = get_empty_duals(instance, vn_decompo)
@@ -111,7 +111,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     println("Initialization complete, $nb_columns columns found\n\n")
   
 
-    =#
+
 
 
 

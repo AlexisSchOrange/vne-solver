@@ -7,7 +7,7 @@ includet("shortest-path-routing.jl")
 
 
 
-function solve_UEPSO(instance)
+function solve_UEPSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_things=true)
 
 
     time_start = time()
@@ -24,12 +24,6 @@ function solve_UEPSO(instance)
     s_node_ressources = s_node_ressources / total_ressource
 
 
-
-    # PSO parameters
-    nb_particle=50
-    nb_iter=100
-    time_max = 5
-
     position = []
     velocity = []
 
@@ -42,7 +36,8 @@ function solve_UEPSO(instance)
 
 
     # initialization
-    print("initialization... ")
+    print_things && print("initialization... ")
+
     for particle in 1:nb_particle
 
         placement = []
@@ -70,15 +65,15 @@ function solve_UEPSO(instance)
         if overall_cost < global_best_cost
             global_best = position[particle]
             global_best_cost = overall_cost
-            println("We got a new best solution! value $overall_cost")
+            print_things && println("We got a new best solution! value $overall_cost")
         end
 
         push!(velocity, ones(nv(v_network)))
     end
-    println(" done, best solution has cost: $global_best_cost")
+    print_things && println("Initialization done, best solution has cost: $global_best_cost")
 
 
-    println("Starting iterations...")
+    print_things && println("Starting iterations...")
     # iterations
     iter = 1
     time_total = 0
@@ -113,7 +108,7 @@ function solve_UEPSO(instance)
                 if overall_cost < global_best_cost
                     global_best = position[particle]
                     global_best_cost = overall_cost
-                    println("We got a new best solution! value $overall_cost")
+                    print_things && println("We got a new best solution! value $overall_cost")
                 end
 
 
@@ -135,7 +130,7 @@ function solve_UEPSO(instance)
                 if overall_cost < global_best_cost
                     global_best_cost = overall_cost
                     global_best = position[particle]
-                    println("We got a new best solution! value $global_best_cost")
+                    print_things && println("We got a new best solution! value $global_best_cost")
                 end
             end
         end
@@ -145,8 +140,9 @@ function solve_UEPSO(instance)
 
     end
 
+    print("I was at iter $iter")
     #println("Final best solution: $global_best")
-    println("UEPSO finished, best solution: $global_best_cost")
+    print_things && println("UEPSO finished, best solution: $global_best_cost")
     routing, routing_cost_shortest_path = shortest_path_routing(instance, global_best)
     final_mapping = Mapping(v_network, s_network, global_best, routing)
 

@@ -111,8 +111,7 @@ end
 
 
 
-########### GET SOLLSSSSS
-
+# Get all solutions of the instance
 function get_sols(instance)
 
     model = Model(Gurobi.Optimizer)
@@ -120,6 +119,7 @@ function get_sols(instance)
     s_network_dir = instance.s_network_dir
 
     set_up_problem(instance, model)
+    println("Presolve at 0 - potential issue?")
     set_optimizer_attribute(model, "PoolSearchMode", 2)
     set_optimizer_attribute(model, "PoolSolutions", 1000)
     
@@ -163,7 +163,7 @@ function get_sols(instance)
 end
 
 
-############### HREP
+# Get h representation from v representation
 function get_hrep(sols, names)
     v_rep = vrep(sols);
     poly = polyhedron(v_rep, CDDLib.Library());
@@ -175,13 +175,8 @@ function get_hrep(sols, names)
 end
 
 
-function get_polyhedron(sols, names)
-    v_rep = vrep(sols);
-    poly = polyhedron(v_rep, XPORTA.Library(:float));
-    return poly
-end
 
-
+# Get the dominant - didnt use it really, tried it and it gave weird results...?
 function get_dominant_hrep(sols, names)
     rays = []
     for i_var in 1:length(names)
@@ -189,7 +184,7 @@ function get_dominant_hrep(sols, names)
         ray[i_var] = 1
         push!(rays, ray)
     end
-    v_rep = convexhull(sols...) + conichull(rays...)
+    v_rep = convexhull(sols...) + conichull(rays...) # This is the "minkovsky sum" or something like that
     poly = polyhedron(v_rep, CDDLib.Library(:float));
     #print(poly)
 
@@ -204,7 +199,9 @@ end
 
 
 
-# PRINTING
+# ------ Priting functions
+
+
 function print_solutions(sols, names)
 
     for (i_sol, sol) in enumerate(sols)
@@ -286,13 +283,9 @@ function print_polytope(hr, names_variables)
 end
 
 
-function print_polyedron(poly, names)
-    h_rep = hrep(poly);
-    print_polytope_better(h_rep, names)
-end
 
 
-
+# This was to write all the constraint to add them to the model directly, by hand, to try and check which one would improve the bound.
 function print_constraints_jump(hr, instance)
 
     for h in halfspaces(hr)
@@ -326,7 +319,7 @@ function print_constraints_jump(hr, instance)
 end
 
 
-
+# Given a solution, would check which facets are violated. But, in my case, since I have hyperplanes, it didnt worked so I abandonned it.
 function print_violated_constraints(hr, names, solution) 
 
     println("\n\n There are " * string(length(halfspaces(hr))) * " halfspaces")

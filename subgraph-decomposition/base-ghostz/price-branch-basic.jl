@@ -15,9 +15,10 @@ includet("../../utils/import_utils.jl")
 # utils colge
 includet("utils/utils-subgraphdecompo.jl")
 includet("utils/partition-vn.jl")
+includet("utils/checkers.jl")
 
 # pricers
-includet("pricers/pricer-full.jl")
+includet("pricers/pricer-exact.jl")
 
 # end heuristics
 includet("end-heuristic/basic-ilp.jl")
@@ -62,6 +63,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     #------------ GENERATION DE COLONNES
     nb_columns = 0
     nb_iter = 0
+    nb_usable = 0
 
     time_master = 0
     time_subproblems = 0
@@ -83,9 +85,9 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
         if type_pricer == "ghost"
             pricers_full[subgraph] = set_up_pricer_ghost(instance, subgraph)
         elseif type_pricer == "constraint"
-            pricer_full[subgraph] = set_up_pricer_cons(instance, subgraph)
+            pricers_full[subgraph] = set_up_pricer_cons(instance, subgraph)
         else
-            pricer_full[subgraph] = set_up_pricer(instance, subgraph)
+            pricers_full[subgraph] = set_up_pricer(instance, subgraph)
         end
     end
     keep_on = true
@@ -121,11 +123,11 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
                 break
             end
 
-            column, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limit = time_limit_subpb)
+            sub_mapping, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limit = time_limit_subpb)
 
             if reduced_cost < -0.0001
-                has_found_new_column = true 
-                add_column(master_problem, instance, vn_subgraph, column, true_cost)
+                has_found_new_column = true
+                add_column(master_problem, instance, vn_subgraph, sub_mapping, true_cost)
                 nb_columns += 1
             end
 
@@ -172,8 +174,8 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     println("$nb_iter iters, final value: $(round(cg_value; digits=3))")
     println("====================================================\n")
 
-
-
+    check_all_columns(vn_decompo, master_problem)
+    
     # ======= END HEURISTIC STUFF ======= #
 
     heur_sol = basic_heuristic(instance, vn_decompo, master_problem, time_end_solving)

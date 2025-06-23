@@ -1,4 +1,7 @@
-# A clean version...
+# todo for sauron
+# => pave the network with cheapest heuristics
+# => remove all the useless stuff, make the colge as clean as possible for ifip
+# => better paving with cplex : get the right sizes that work better, get several solution at the same time
 
 
 using Revise
@@ -8,24 +11,33 @@ using JuMP, CPLEX
 using OrderedCollections
 using Printf
 
+using DataFrames
+using CSV
+
 #general
-includet("../../utils/import_utils.jl")
+includet("../../../utils/import_utils.jl")
+#includet("../../utils/visu.jl")
 
 # utils colge
-includet("utils/utils-subgraphdecompo.jl")
-includet("utils/partition-vn.jl")
-includet("utils/base_relaxation.jl")
+includet("../utils/utils-subgraphdecompo.jl")
+includet("../utils/partition-vn.jl")
+includet("../utils/base_relaxation.jl")
 
 # pricers
-includet("pricers/pricer-full.jl")
-includet("pricers/sn-decompo.jl")
+includet("../pricers/pricer-full.jl")
+includet("../pricers/sn-decompo.jl")
 
 # end heuristics
-includet("end-heuristic/basic-ilp.jl")
-includet("end-heuristic/local-search.jl")
+includet("../end-heuristic/basic-ilp.jl")
+
 
 
 function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning = [], nb_part = -1)
+
+    df_stats = DataFrame(Time=Float32[], CG_val=Float32[], LB_val=Float32[], Avg_red=Float32[])
+
+
+
 
     println("Starting...")
     time_beginning = time()
@@ -81,6 +93,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     lower_bound = get_base_relaxation(instance)
     println("Bound obtained: $lower_bound\n\n")
 
+    #=
     # ====== STEP 1: paving with ILP
     println("------- Part 1: Initialization")
     print("Paving the substrate network... ")
@@ -96,7 +109,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
         for problem in init_problems[vn_subgraph]
             update_pricer_sn_decompo(vn_decompo, problem, dual_costs) #ugh
             column, true_cost, reduced_cost = solve_pricers_sn_decompo(problem, time_limit=10)
-            if column !== nothing && true_cost < 99999
+            if column !== nothing && true_cost < 9999999
                 add_column(master_problem, instance, problem.vn_subgraph, column, true_cost)
                 nb_columns += 1
                 nb_col_cur+=1
@@ -105,7 +118,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
         print("done for $(vn_subgraph.graph[][:name]), $nb_col_cur columns found; ")
     end
     println("Initialization complete, $nb_columns columns found\n\n")
-  
+  =#
 
 
 
@@ -118,7 +131,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     nb_max_node_subgraphs = maximum([nv(subgraph.graph) for subgraph in vn_decompo.subgraphs])
 
     nb_parts = floor(Int, nv(s_network) / (nb_max_node_subgraphs)/2) + 1
-    nb_nodes_per_snsubgraph_pricers = max(22, 2.25 * nb_max_node_subgraphs)
+    nb_nodes_per_snsubgraph_pricers = max(25, 2.5 * nb_max_node_subgraphs)
     println("$nb_parts substrate subgraphs to do, with at least $nb_nodes_per_snsubgraph_pricers capacitated nodes...")
     sn_decompo_clusters = get_sn_decompo(s_network, nb_parts, nb_nodes_per_snsubgraph_pricers)
     pricers_sn_decompo = OrderedDict()
@@ -133,7 +146,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
         end
     end
 
-    keep_on = true
+    keep_on = false
     reason = "I don't know"
     while keep_on
         nb_iter += 1
@@ -179,7 +192,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
                 nb_columns += 1
             end
 
-            if reduced_cost>-2.5
+            if reduced_cost>-4.
                 if pricer_sub_sn ∉ desactivated_pricers
                     nb_desactivated_pricers+=1
                     push!(desactivated_pricers, pricer_sub_sn)
@@ -201,7 +214,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
             if nb_desactivated_pricers >= nb_pricers   
                 keep_on = false
                 reason="changing to full solving to get better columns"
-            end
+            end 
             if nb_columns>150*length(vn_decompo.subgraphs)
                 keep_on=false
                 reason="too many columns generated already..."
@@ -210,12 +223,19 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
             keep_on = false
             reason="time limit"
         end
+
+
+        push!(df_stats, (time_overall, cg_value, lower_bound, average_obj)) 
+
+
+
     end
     println("\n Step 2 finished, reason: $reason. By the way: there was $nb_pricers")
 
 
 
 
+    CSV.write("decompo_stats.csv", df_stats)
 
 
     # ====== STEP 3: full pricers
@@ -297,7 +317,7 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
             reason="time limit"
         end
 
-        
+        push!(df_stats, (time_overall, cg_value, lower_bound, average_obj)) 
 
 
     end
@@ -311,13 +331,13 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     println("====================================================\n")
 
 
+    CSV.write("decompo_stats.csv", df_stats)
+
 
     # ======= END HEURISTIC STUFF ======= #
 
-    solution = basic_heuristic(instance, vn_decompo, master_problem, time_end_solving)
-    local_search(instance, vn_decompo, solution)
+    solution_heuristic = basic_heuristic(instance, vn_decompo, master_problem, time_end_solving)
 
-    return 
+    return solution_heuristic
+    
 end
-
-
