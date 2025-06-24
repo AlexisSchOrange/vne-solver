@@ -77,10 +77,87 @@ function solve_subgraph_decompo(instance; time_max = 3600, v_node_partitionning 
     print("\n\n==================== Starting CG ====================\n")
 
 
+    # ====== STEP 2: smaller pricers - paving the network
+    println("------- Part 2: Reduced pricers")
+
+    nb_parts = 3
+    nb_nodes_per_snsubgraph_pricers = 25
+    println("$nb_parts substrate subgraphs to do, with at least $nb_nodes_per_snsubgraph_pricers capacitated nodes...")
+    sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_parts, nb_nodes_per_snsubgraph_pricers)
+    pricers_sn_decompo = OrderedDict()
+    for vn_subgraph in vn_decompo.subgraphs
+        pricers_sn_decompo[vn_subgraph] = set_up_pricer_sn_decompo(instance, vn_subgraph, sn_decompo_clusters, type_pricer)
+    end
+
+    keep_on = true
+    reason = "I don't know"
+    while keep_on
+        nb_iter += 1
+
+        # ---- master problem
+        optimize!(model)
+        time_master +=  solve_time(model)
+        status = termination_status(model)
+        if status != MOI.OPTIMAL
+            println("Infeasible or unfinished: $status")
+            return
+        end
+
+        cg_value = objective_value(model)
+        dual_costs = get_duals(instance, vn_decompo, master_problem)
+
+        # ---- pricers
+        time_beginning_pricer = time()
+
+
+        average_obj = 0
+
+        has_found_new_column = false
+        sum_pricers_values = 0
+        for vn_subgraph in vn_decompo.subgraphs
+            for pricer in pricers_sn_decompo[vn_subgraph]
+                
+
+                update_pricer_sn_decompo(vn_decompo, pricer, dual_costs)
+                column, true_cost, reduced_cost = solve_pricers_sn_decompo(pricer, time_limit=500)
+
+    
+                if column !== nothing && reduced_cost < -0.0001
+                    has_found_new_column = true
+                    add_column(master_problem, instance, vn_subgraph, column, true_cost)
+                    nb_columns += 1
+                end
+    
+                sum_pricers_values += reduced_cost
+            end
+        end
+        average_obj = sum_pricers_values / (nb_parts * length(vn_decompo.subgraphs))
+        
+
+        @printf("Iter %2d  CG bound: %10.3f  lower bound: %10.3f  %5d column  time: %5.2fs  average reduced cost: %10.3f \n",
+                    nb_iter, cg_value, lower_bound, nb_columns, time_overall, average_obj)
+    
+
+        time_subproblems += time() - time_beginning_pricer
+        time_overall = time()-time_beginning
+        if time_overall < time_colge
+            keep_on = true
+        else
+            keep_on = false
+            reason="time limit"
+        end
+
+    end
+    println("\n Step 2 finished, reason: $reason.")
+
+
+        
 
     # ====== STEP 3: full pricers
     println("\n------- Solving method: Exact pricers")
+    reason = "I don't know"
 
+    #=
     pricers_full = Dict()
     for subgraph in vn_decompo.subgraphs
         if type_pricer == "ghost"
@@ -163,6 +240,7 @@ function solve_subgraph_decompo(instance; time_max = 3600, v_node_partitionning 
             reason="time limit"
         end
     end
+    =#
 
     print("\n==================== CG finished ====================\nReason: $reason \n")
     println("Time in MP: $(round(time_master; digits=3)) , time in SP: $(round(time_subproblems; digits=3)), time overall: $(round(time_overall; digits=3))")
