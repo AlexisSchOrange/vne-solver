@@ -170,10 +170,15 @@ function solve_subgraph_decompo(instance; time_max = 3600, v_node_partitionning 
     println("====================================================\n")
 
     nb_valid_cols, values = check_all_columns_2(vn_decompo, master_problem, instance)
-    mean_vals = mean(values)
-    min_vals = minimum(values)
-    median_vals = median(values)
-
+    if nb_valid_cols > 0
+        mean_vals = mean(values)
+        min_vals = minimum(values)
+        median_vals = median(values)
+    else
+        mean_vals = 0
+        min_vals = 0
+        median_vals = 0
+    end
     # ======= END HEURISTIC STUFF ======= #
 
     time_end_solving = 6000
