@@ -26,7 +26,8 @@ function check_all_columns(vn_decompo, master_problem)
                 if check_column_ghost(sub_mapping, vn_subgraph, instance)
                     #check_column_ghost_trois(sub_mapping, vn_subgraph, instance)
                     #if check_column_ghost_larger(sub_mapping, vn_subgraph, instance)
-                    if check_column_total(sub_mapping, vn_subgraph, instance)
+                    res, val = check_column_total(sub_mapping, vn_subgraph, instance)
+                    if res
                         usable_column = true
                     else
                         nb_still_unfeasible += 1
@@ -67,6 +68,7 @@ function check_all_columns_2(vn_decompo, master_problem, instance)
 
     for vn_subgraph in vn_decompo.subgraphs
         for column in master_problem.columns[vn_subgraph]
+            print("i")
             sub_mapping = column.mapping
             nb_columns += 1
             feasible, value = check_column_total(sub_mapping, vn_subgraph, instance)

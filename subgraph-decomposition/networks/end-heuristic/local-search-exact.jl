@@ -123,7 +123,7 @@ function local_search_changin(instance, solution, time_max)
         # Convert to Vector if needed
         v_nodes_to_change = collect(v_nodes_to_change)
 
-        println("Selected nodes: $v_nodes_to_change")
+        #println("Selected nodes: $v_nodes_to_change")
 
 
 
@@ -166,7 +166,7 @@ function local_search_changin(instance, solution, time_max)
 
 
 
-    
+    return best_sol_val, best_sol_placement
 
 end
 

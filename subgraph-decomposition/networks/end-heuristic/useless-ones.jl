@@ -6,28 +6,48 @@ using JuMP, CPLEX
 
 
 
-function basic_heuristic(instance, vn_decompo, master_problem, time_max)
+function basic_heuristic_useless(instance, vn_decompo, master_problem, time_max)
 
 
-    model = Model(CPLEX.Optimizer)
-    set_up_problem(instance, vn_decompo, model)
-    set_time_limit_sec(model, time_max)
-    
+    println("Let's gongueeee")
+
+    faisable = 0
+    overall = 0
     for subgraph in vn_decompo.subgraphs
+        #println("Doing subgraph $subgraph rn")
         for column in master_problem.columns[subgraph]
-            add_column_ip(model, vn_decompo, instance, subgraph, column)
+            #println("Lol look at the column bae $column")
+            model = Model(CPLEX.Optimizer)
+            set_up_problem(instance, vn_decompo, model)
+            set_time_limit_sec(model, time_max)
+    
+            for subgraph_2 in vn_decompo.subgraphs
+                if subgraph == subgraph_2
+                    add_column_ip(model, vn_decompo, instance, subgraph, column)
+                else
+                    for column_2 in master_problem.columns[subgraph_2]
+                        add_column_ip(model, vn_decompo, instance, subgraph_2, column_2)
+                    end
+                end
+            end
+
+            set_silent(model)
+            optimize!(model)
+
+            status = primal_status(model)
+            if status != MOI.FEASIBLE_POINT
+                println("Infeasible or unfinished: $status")
+            else
+                println("Optimal solution : $(objective_value(model))")
+                faisable+=1
+            end
+
+            overall +=1
+        
         end
     end
 
-    optimize!(model)
-
-    status = primal_status(model)
-    if status != MOI.FEASIBLE_POINT
-        println("Infeasible or unfinished: $status")
-        return -999
-    end
-    println("Optimal solution : $(objective_value(model))")
-    return objective_value(model)
+    println("FAISABLE: $faisable, OVERALL: $overall")
 end
 
 
