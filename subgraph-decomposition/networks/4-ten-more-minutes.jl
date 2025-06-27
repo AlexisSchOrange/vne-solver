@@ -248,7 +248,7 @@ function solve_subgraph_decompo_ten_minutes(instance)
 
     # ---- Large Neighbor Search
     #local_search(instance, vn_decompo, heur_sol)
-    if value_cg_heuristic != nothing
+    if cg_heuristic_solution != nothing
         value_local_search, lsn_placement_sol = local_search_changin(instance, cg_heuristic_solution, time_local_search)
     else
         value_local_search = 9999

@@ -92,7 +92,7 @@ function solve_subgraph_decompo_one_hour(instance)
     nb_nodes_subgraph = 20
     sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
 
-    time_limit_per_pb = time_init / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
+    time_limit_per_pb = time_init * 1.25 / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
     for vn_subgraph in vn_decompo.subgraphs
         pricers = set_up_pricer_sn_decompo(instance, vn_subgraph, sn_decompo_clusters, "normal")
         nb_col_cur = 0
@@ -332,7 +332,7 @@ function solve_subgraph_decompo_one_hour(instance)
 
     # ---- Large Neighbor Search
     #local_search(instance, vn_decompo, heur_sol)
-    if value_cg_heuristic != nothing
+    if cg_heuristic_solution != nothing
         value_local_search, lsn_placement_sol = local_search_changin(instance, cg_heuristic_solution, time_local_search)
     else
         value_local_search = 9999
