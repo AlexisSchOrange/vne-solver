@@ -27,7 +27,15 @@ includet("end-heuristic/local-search-exact.jl")
 
 
 
-function solve_subgraph_decompo(instance)
+function solve_subgraph_decompo_ten_minutes(instance)
+
+    # Budget : 600 seconds
+    time_init = 100
+    time_limit_sub_pricers = 400
+    time_cg_heuristic = 50
+    time_local_search = 50
+
+
 
     println("Starting...")
     time_beginning = time()
@@ -80,12 +88,12 @@ function solve_subgraph_decompo(instance)
 
     time_beginning_init = time()
     nb_substrate_subgraph = 15
-    nb_nodes_subgraph = 20
+    nb_nodes_subgraph = 17
     sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
 
-    time_limit_per_pb = 100 / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
+    time_limit_per_pb = (1.25*time_init) / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
     for vn_subgraph in vn_decompo.subgraphs
-        pricers = set_up_pricer_sn_decompo(instance, vn_subgraph, sn_decompo_clusters, "ghost")
+        pricers = set_up_pricer_sn_decompo(instance, vn_subgraph, sn_decompo_clusters, "normal")
         nb_col_cur = 0
         for sub_pricer in pricers
             column, true_cost, reduced_cost = solve_pricers_sn_decompo(sub_pricer, time_limit=time_limit_per_pb)
@@ -120,11 +128,10 @@ function solve_subgraph_decompo(instance)
     # ====== STEP 2: smaller pricers - paving the network
     println("------- Part 2: Reduced pricers")
 
-    time_limit_sub_pricers = 1700
     time_beginning_sub_pricers = time()
 
     nb_substrate_subgraph = floor(Int, nv(s_network) / 15)  
-    nb_nodes_subgraph = 30
+    nb_nodes_subgraph = 22
     sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
     println("We have $nb_substrate_subgraph sub-substrate, with at least $nb_nodes_subgraph capacited nodes")
 
@@ -134,7 +141,7 @@ function solve_subgraph_decompo(instance)
     desactivated_pricers = []     
     nb_sub_pricers = nb_substrate_subgraph * length(vn_decompo.subgraphs)
     for vn_subgraph in vn_decompo.subgraphs
-        pricers_sn_decompo[vn_subgraph] = set_up_pricer_sn_decompo(instance, vn_subgraph, sn_decompo_clusters, "ghost")
+        pricers_sn_decompo[vn_subgraph] = set_up_pricer_sn_decompo(instance, vn_subgraph, sn_decompo_clusters, "normal")
         for pricer in pricers_sn_decompo[vn_subgraph]
             sub_pricers_last_values[pricer] = -99999.
         end
@@ -221,91 +228,7 @@ function solve_subgraph_decompo(instance)
         end
 
     end
-    println("\n Step 2 finished, reason: $reason.")
     
-
-
-    # ====== STEP 3: full pricers
-    println("\n------- Solving method: Exact pricers")
-    time_beginning_full_pricers = time()
-    time_for_full_pricers = 900
-
-    pricers_full = Dict()
-    for subgraph in vn_decompo.subgraphs
-        #pricers_full[subgraph] = set_up_pricer_cons(instance, subgraph)
-        pricers_full[subgraph] = set_up_pricer(instance, subgraph)
-    end
-    
-    keep_on = true
-    reason = "I don't know"
-    while keep_on
-        nb_iter += 1
-
-        # ---- Pricers things
-        dual_costs = get_duals(instance, vn_decompo, master_problem)
-
-        has_found_new_column = false
-        has_finished = true
-        sum_pricers_values = 0
-
-        for vn_subgraph in vn_decompo.subgraphs
-            pricer = pricers_full[vn_subgraph]
-
-            time_limit_pricer = time_for_full_pricers - (time()-time_beginning_full_pricers)
-            if time_limit_pricer < 0.1
-                has_finished = false
-                break
-            end
-
-            sub_mapping, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limit = 100)
-
-            if reduced_cost < -0.0001
-                has_found_new_column = true
-                add_column(master_problem, instance, vn_subgraph, sub_mapping, true_cost)
-                nb_columns += 1
-            end
-
-            sum_pricers_values += reduced_cost
-            time_subproblems += solve_time(pricer.model) 
-        end
-
-        if has_finished
-            current_lower_bound = cg_value + sum_pricers_values
-            if current_lower_bound > lower_bound && nb_iter > 3
-                lower_bound = current_lower_bound
-            end
-        end
-
-
-        # ----- Master problem stuff
-
-        optimize!(model)
-        time_master +=  solve_time(model)
-
-        cg_value = objective_value(model)
-
-        time_overall = time()-time_beginning
-        average_obj = sum_pricers_values/length(vn_decompo.subgraphs)
-
-        @printf("Iter %2d  CG bound: %10.3f  lower bound: %10.3f  %5d column  time: %5.2fs  average reduced cost: %10.3f \n",
-            nb_iter, cg_value, lower_bound, nb_columns, time_overall, average_obj)
-
-
-        if (time() - time_beginning_full_pricers) < time_for_full_pricers 
-            keep_on = true
-            if !has_found_new_column
-                keep_on = false
-                reason="no improving columns"
-            end
-        else
-            keep_on = false
-            reason="time limit"
-        end
-
-        
-
-    end
-
         
 
 
@@ -320,26 +243,27 @@ function solve_subgraph_decompo(instance)
     # ======= END HEURISTICS ======= #
 
     # ---- Price n Branch heuristic
-    time_cg_heuristic = 600
     value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
 
     # ---- Large Neighbor Search
-    time_local_search = 300
     #local_search(instance, vn_decompo, heur_sol)
-    value_local_search, lsn_placement_sol = local_search_changin(instance, cg_heuristic_solution, time_local_search)
-
+    if value_cg_heuristic != nothing
+        value_local_search, lsn_placement_sol = local_search_changin(instance, cg_heuristic_solution, time_local_search)
+    else
+        value_local_search = 9999
+    end
 
 
     result = Dict()
-    #=
-    result["time"] = time() - time_beginning
-    result["CG_val"] = cg_value
-    result["LG_val"] = lower_bound
+    result["time"] = time() - time_beginning_init
+    result["cg_value"] = cg_value
+    result["lower_bound"] = lower_bound
     result["nb_iter"] = nb_iter
     result["nb_col"] = nb_columns
-    result["heuristic_res"] = heur_sol
-    =#
+    result["value_cg_heuristic"] = value_cg_heuristic
+    result["value_local_search"] = value_local_search
+
     return result
 end
 

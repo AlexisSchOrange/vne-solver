@@ -121,6 +121,7 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
     if linear
         relax_integrality(model)
     end
+    #set_optimizer_attribute(model, "CPXPARAM_Emphasis_MIP", 5)
 
     optimize!(model)
 
