@@ -24,6 +24,11 @@ includet("end-heuristic/local-search-exact.jl")
 
 
 function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning = [], nb_part = -1, type_pricer="normal")
+    
+    
+    # Budget : 60 seconds
+    time_init = 30
+    time_cg_heuristic = 30
 
     println("Starting...")
     time_beginning = time()
@@ -33,15 +38,10 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
-    if v_node_partitionning == []
-        if nb_part<0
-            nb_part = floor(Int, nv(v_network.graph)/9)+1
-        end
-        v_node_partitionning = partition_vn_metis(instance, nb_part)
-    end
+    nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
+    v_node_partitionning = partition_vn(instance, nb_virtual_subgraph)
 
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
-
     
     println("Decomposition set: ")
         println("For $v_network, there is $(length(vn_decompo.subgraphs)) subgraphs:")
@@ -56,11 +56,14 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
     model = master_problem.model
     print("Master problem set... ")
 
+
+
+
     # ====== PAVING THE NETWORK WITH HEURISTIC ======= #
 
     println("Paving time...")
     time_0 = time()
-    nb_column_per_subgraph = 30
+    nb_column_per_subgraph = 35
     mappings = init_uepso(instance, vn_decompo, nb_column_per_subgraph)
     println("Mappings gotten! In just $(time() - time_0)")
     for v_subgraph in vn_decompo.subgraphs
@@ -74,17 +77,14 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
     
     # ======= GETTING A SOLUTION ======= #
-    time_solution = 20
-    val, heur_sol = basic_heuristic(instance, vn_decompo, master_problem, time_solution)
+    time_cg_heuristic = 30
+    val, heur_sol = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
     #local_search(instance, vn_decompo, heur_sol)
 
 
 
-    # ======= LOCAL SEARCH TIME ====== #
-    time_local_search = 30
-    local_search_changin(instance, heur_sol, time_local_search)
-
     result = Dict()
+    result["algo"] = "one-minute"
     result["time"] = time() - time_beginning
     result["heuristic_res"] = heur_sol
 

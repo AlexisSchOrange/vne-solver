@@ -3,9 +3,9 @@ using Revise
 using Statistics
 using Graphs, MetaGraphsNext
 
-includet("base-ghostz/utils/utils-subgraphdecompo.jl")
+includet("utils/utils-subgraphdecompo.jl")
 includet("../utils/metis_wrapper.jl")
-includet("../heuristics/uepso.jl")
+includet("../../heuristics/uepso.jl")
 
 
 
