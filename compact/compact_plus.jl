@@ -127,8 +127,14 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
 
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
+        result = Dict()
+        result["sol_value"] = -1
+        result["lower_bound"] = objective_bound(model)
+        result["gap"]  = -1.
+        result["node_count"] = node_count(model)
+        result["time_solving"] = time() - time_start    
         println("Infeasible or unfinished: $status")
-        return -999., objective_bound(model), node_count(model)
+        return result
     end
 
     println("nb de noeuds: $(node_count(model))")
@@ -162,11 +168,14 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
     end
     =#
 
-    result = objective_value(model)
-    lb = objective_bound(model)
-    nbnodes = node_count(model)
-    time_overlal = time() - time_start
-    return result, lb, nbnodes, time_overlal
+    result = Dict()
+    result["sol_value"] = objective_value(model)
+    result["lower_bound"] = objective_bound(model)
+    result["gap"]  = relative_gap(model)
+    result["node_count"] = node_count(model)
+    result["time_solving"] = time() - time_start
+
+    return result
 end
 
 

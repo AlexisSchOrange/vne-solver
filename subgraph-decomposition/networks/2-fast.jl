@@ -7,10 +7,12 @@ includet("utils/utils-subgraphdecompo.jl")
 includet("../../heuristics/uepso.jl")
 includet("utils/partition-vn.jl")
 
+# end heuristics
+includet("end-heuristic/basic-ilp.jl")
 
 
 
-function large_heuristic(instance) 
+function solve_fast(instance) 
 
     v_network = instance.v_network
     s_network = instance.s_network
@@ -40,6 +42,11 @@ function large_heuristic(instance)
     vn_subgraphs = vn_decompo.subgraphs
 
     
+    # Set up master problem !
+    master_problem = set_up_master_problem(instance, vn_decompo)
+    model = master_problem.model
+    print("Master problem set... ")
+
 
     # Decompose the substrate network into the same number of subgraph
     sn_subgraphs = []
@@ -50,47 +57,57 @@ function large_heuristic(instance)
     end
 
     # Map the v_subgraph into s_subgraph
-    # Not taking the previous mapping for now, even if that would be probably a bit better...
-    overall_cost = 0
-    node_placement = zeros(Integer, nv(instance.v_network))
-    edge_routing = Dict()
+    
+    mappings_result = Dict()
+    for v_subgraph in vn_subgraphs
+        
+        mappings = []
 
-    for i_subgraph in 1:nb_virtual_subgraph
+        for s_subgraph in sn_subgraphs
+            sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
+                
+            sub_mapping, cost = solve_UEPSO(sub_instance; nb_particle=25, nb_iter=50, time_max=0.1, print_things=false)
+            # Need to correct the mapping here!
 
-        v_subgraph = vn_subgraphs[i_subgraph]
-        s_subgraph = sn_subgraphs[i_subgraph]
-        sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
             
-        sub_mapping, cost = solve_UEPSO(sub_instance; nb_particle=25, nb_iter=50, time_max=0.1, print_things=false)
-        overall_cost += cost
+            true_cost = 0
 
-
-
-        for v_node in vertices(v_subgraph.graph)
-
-            original_v_node = v_subgraph.nodes_of_main_graph[v_node]
-            original_s_node =  s_subgraph.nodes_of_main_graph[sub_mapping.node_placement[v_node]]
-            node_placement[original_v_node] = original_s_node
-
-        end
-
-
-        for v_edge in edges(v_subgraph.graph)
-            original_v_edge = get_edge(v_network, v_subgraph.nodes_of_main_graph[src(v_edge)], v_subgraph.nodes_of_main_graph[dst(v_edge)])
-            used_edges = []
-            for s_edge in sub_mapping.edge_routing[v_edge].edges
-                real_s_edge = get_edge(s_network_dir, s_subgraph.nodes_of_main_graph[src(s_edge)], s_subgraph.nodes_of_main_graph[dst(s_edge)])
-                push!(used_edges, real_s_edge)
+            node_placement = []
+            for v_node in vertices(v_subgraph.graph)
+                real_s_node = s_subgraph.nodes_of_main_graph[sub_mapping.node_placement][v_node]
+                append!(node_placement, real_s_node)
+                true_cost += s_network[real_s_node][:cost]
             end
-            edge_routing[original_v_edge] = order_path(s_network_dir, used_edges, node_placement[src(original_v_edge)], node_placement[dst(original_v_edge)]) 
+    
+    
+            edge_routing = Dict()
+            for v_edge in edges(v_subgraph.graph)
+                used_edges = []
+                for s_edge in sub_mapping.edge_routing[v_edge].edges
+                    real_s_edge = get_edge(s_network_dir, s_subgraph.nodes_of_main_graph[src(s_edge)], s_subgraph.nodes_of_main_graph[dst(s_edge)])
+                    push!(used_edges, real_s_edge)
+                    true_cost += s_network_dir[src(real_s_edge), dst(real_s_edge)][:cost]
+                end
+                edge_routing[v_edge] = order_path(s_network_dir, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 
+            end
+
+            real_sub_mapping = Mapping(v_subgraph.graph, s_network_dir, node_placement, edge_routing)
+    
+            push!(mappings, real_sub_mapping)
+            add_column(master_problem, instance, v_subgraph, real_sub_mapping, true_cost)
+
         end
+
+        mappings_result[v_subgraph] = mappings
+
+
     end        
 
-    edge_routing, additional_routing_cost = route_cut_edges(instance, vn_decompo, node_placement, edge_routing)
-    overall_cost += additional_routing_cost
+    # ======= GETTING A SOLUTION ======= #
+    time_cg_heuristic = 30
+    val, heur_sol = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
-    println("We obtained a mapping of cost $overall_cost !")
-    return Mapping(v_network, s_network, node_placement, edge_routing)
+
 end
 
 

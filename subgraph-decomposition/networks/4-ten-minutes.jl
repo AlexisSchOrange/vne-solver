@@ -136,7 +136,7 @@ function solve_subgraph_decompo_ten_minutes(instance)
     println("We have $nb_substrate_subgraph sub-substrate, with at least $nb_nodes_subgraph capacited nodes")
 
     pricers_sn_decompo = OrderedDict()
-    sub_pricers_last_values = OrderedDict()
+    sub_pricers_last_values = OrderedDict<()
     nb_desactivated_pricers = 0
     desactivated_pricers = []     
     nb_sub_pricers = nb_substrate_subgraph * length(vn_decompo.subgraphs)
