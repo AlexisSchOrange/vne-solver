@@ -266,10 +266,18 @@ function solve_subgraph_decompo_one_hour(instance)
 
             sub_mapping, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limit = 100)
 
-            if reduced_cost < -0.0001
+            
+            if (!isnothing(sub_mapping)) && reduced_cost < -0.0001
                 has_found_new_column = true
                 add_column(master_problem, instance, vn_subgraph, sub_mapping, true_cost)
                 nb_columns += 1
+            end
+            
+            if isnothing(sub_mapping)
+                println("Pricer with no solution found, stopping the CG...")
+                reason="pricer-unfeasible"
+                has_found_new_column = false
+                break
             end
 
             sum_pricers_values += reduced_cost
