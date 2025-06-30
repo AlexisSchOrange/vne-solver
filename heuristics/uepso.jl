@@ -140,9 +140,12 @@ function solve_UEPSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
 
     end
 
-    print("I was at iter $iter")
-    #println("Final best solution: $global_best")
-    print_things && println("UEPSO finished, best solution: $global_best_cost")
+    print_things && println("UEPSO finished at iteration $nb_iter, best solution: $global_best_cost")
+
+    if isnothing(global_best) # Need to correct this someday...
+        return nothing, 99999
+    end
+
     routing, routing_cost_shortest_path = shortest_path_routing(instance, global_best)
     final_mapping = Mapping(v_network, s_network, global_best, routing)
 

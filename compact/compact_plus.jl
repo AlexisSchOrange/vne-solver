@@ -128,6 +128,7 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
         result = Dict()
+        result["mapping"] = nothing
         result["sol_value"] = -1
         result["lower_bound"] = objective_bound(model)
         result["gap"]  = -1.
@@ -147,15 +148,15 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
         x_values = value.(model[:x])
         y_values = value.(model[:y])
     
-        println("Node placement:")
+        #println("Node placement:")
         for v_node in vertices(v_network)
             for s_node in vertices(s_network_dir)
                 if x_values[v_node, s_node] > 0.01
-                    println("$v_node is placed on $s_node")
+                    #println("$v_node is placed on $s_node")
                 end
             end
         end
-        println("\nEdge routing:")
+        #println("\nEdge routing:")
         for v_edge in edges(v_network)
             print("Routing of $v_edge : ")
             for s_edge in edges(s_network_dir)
@@ -169,6 +170,7 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
     =#
 
     result = Dict()
+    result["mapping"] = nothing
     result["sol_value"] = objective_value(model)
     result["lower_bound"] = objective_bound(model)
     result["gap"]  = relative_gap(model)

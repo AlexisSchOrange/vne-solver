@@ -14,7 +14,7 @@ function init_uepso(instance, vn_decompo, nb_columns)
     s_network_dir = instance.s_network_dir
 
     # Some way to partition the sn network into nb subgraph parts
-    s_subgraphs = get_sn_decompo_kahip(s_network, nb_columns, 25)
+    s_subgraphs = get_sn_decompo_kahip(s_network, nb_columns, 20)
 
     
 

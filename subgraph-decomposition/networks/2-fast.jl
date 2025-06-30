@@ -12,7 +12,13 @@ includet("end-heuristic/basic-ilp.jl")
 
 
 
-function solve_fast(instance) 
+function solve_quitefast(instance) 
+
+
+
+    # hum
+    time_cg_heuristic = 5
+
 
     v_network = instance.v_network
     s_network = instance.s_network
@@ -68,7 +74,13 @@ function solve_fast(instance)
                 
             sub_mapping, cost = solve_UEPSO(sub_instance; nb_particle=25, nb_iter=50, time_max=0.1, print_things=false)
             # Need to correct the mapping here!
-
+            
+            if isnothing(sub_mapping) # invalid submapping!
+                result = Dict()
+                result["mapping"] = nothing
+                result["mapping_cost"] = -1
+                result["time"] = time() - time_beginning         
+            end
             
             true_cost = 0
 
@@ -104,10 +116,14 @@ function solve_fast(instance)
     end        
 
     # ======= GETTING A SOLUTION ======= #
-    time_cg_heuristic = 30
-    val, heur_sol = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
+    value_cg_heuristic, heuristic_mapping = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
+    result = Dict()
+    result["mapping"] = heuristic_mapping
+    result["time_solving"] = time()-time_beginning
+    result["value_cg_heuristic"] = value_cg_heuristic
 
+    return result
 end
 
 

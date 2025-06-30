@@ -10,7 +10,7 @@ includet("utils/partition-vn.jl")
 
 
 
-function large_heuristic(instance) 
+function solve_ultrafast_heuristic(instance) 
 
     v_network = instance.v_network
     s_network = instance.s_network
@@ -61,7 +61,16 @@ function large_heuristic(instance)
         s_subgraph = sn_subgraphs[i_subgraph]
         sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
             
-        sub_mapping, cost = solve_UEPSO(sub_instance; nb_particle=25, nb_iter=50, time_max=0.1, print_things=false)
+        sub_mapping, cost = solve_UEPSO(sub_instance; nb_particle=25, nb_iter=50, time_max=0.2, print_things=false)
+        
+        if isnothing(sub_mapping) # invalid submapping!
+            result = Dict()
+            result["mapping"] = nothing
+            result["mapping_cost"] = -1
+            result["time"] = time() - time_beginning         
+        end
+    
+        
         overall_cost += cost
 
 
@@ -87,10 +96,27 @@ function large_heuristic(instance)
     end        
 
     edge_routing, additional_routing_cost = route_cut_edges(instance, vn_decompo, node_placement, edge_routing)
+    
+    if isnothing(edge_routing) # invalid additional edge routing!
+        println("Couldnt find a solution...")
+        result = Dict()
+        result["mapping"] = nothing
+        result["mapping_cost"] = -1
+        result["time"] = time() - time_beginning         
+    end
+
+
+    
     overall_cost += additional_routing_cost
 
+
     println("We obtained a mapping of cost $overall_cost !")
-    return Mapping(v_network, s_network, node_placement, edge_routing)
+
+    result = Dict()
+    result["mapping"] = Mapping(v_network, s_network, node_placement, edge_routing)
+    result["mapping_cost"] = round(Int, overall_cost) 
+    result["time_solving"] = (time() - time_beginning)
+    return result
 end
 
 
@@ -178,7 +204,7 @@ function route_cut_edges(instance, vn_decompo, v_node_placement, edge_routing)
         if shortest_path == []
             #println("No shortest path found: the graph is full!")
             #println("I had the following routing: $edge_routing")
-            return Dict(), 99999999
+            return nothing, 99999999
         end
 
         edge_routing[v_edge] = order_path(s_network_dir, shortest_path, s_src, s_dst) 

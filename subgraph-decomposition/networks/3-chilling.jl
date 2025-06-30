@@ -23,12 +23,13 @@ includet("end-heuristic/local-search-exact.jl")
 
 
 
-function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning = [], nb_part = -1, type_pricer="normal")
+function solve_chill(instance)
     
     
     # Budget : 60 seconds
     time_init = 30
     time_cg_heuristic = 30
+
 
     println("Starting...")
     time_beginning = time()
@@ -77,16 +78,15 @@ function solve_subgraph_decompo(instance; time_max = 100, v_node_partitionning =
 
     
     # ======= GETTING A SOLUTION ======= #
-    time_cg_heuristic = 30
-    val, heur_sol = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
+    value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
     #local_search(instance, vn_decompo, heur_sol)
 
 
 
     result = Dict()
-    result["algo"] = "one-minute"
-    result["time"] = time() - time_beginning
-    result["heuristic_res"] = heur_sol
+    result["algo"] = "chiller-subgraph-decompo"
+    result["time_solving"] = time() - time_beginning
+    result["value_cg_heuristic"] = value_cg_heuristic
 
     return result
 end
