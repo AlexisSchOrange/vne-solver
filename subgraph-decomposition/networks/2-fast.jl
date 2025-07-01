@@ -121,7 +121,7 @@ function solve_quitefast(instance)
     result = Dict()
     result["mapping"] = heuristic_mapping
     result["time_solving"] = time()-time_beginning
-    result["value_cg_heuristic"] = value_cg_heuristic
+    result["value_cg_heuristic"] = round(Int, value_cg_heuristic)
 
     return result
 end

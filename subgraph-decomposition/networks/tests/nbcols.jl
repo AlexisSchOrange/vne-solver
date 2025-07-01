@@ -9,30 +9,29 @@ using Statistics
 
 
 #general
-includet("../../utils/import_utils.jl")
+includet("../../../utils/import_utils.jl")
 
 # utils colge
-includet("utils/utils-subgraphdecompo.jl")
-includet("utils/partition-vn.jl")
-includet("utils/checkers.jl")
+includet("../utils/utils-subgraphdecompo.jl")
+includet("../utils/partition-vn.jl")
+includet("../utils/checkers.jl")
 
 # pricers
-includet("pricers/pricer-exact.jl")
-includet("pricers/pricer-subsn.jl")
+includet("../pricers/pricer-exact.jl")
+includet("../pricers/pricer-subsn.jl")
 
 # end heuristics
-includet("end-heuristic/basic-ilp.jl")
-includet("end-heuristic/diving-heuristic.jl")
-includet("end-heuristic/local-search-exact.jl")
+includet("../end-heuristic/basic-ilp.jl")
+includet("../end-heuristic/diving-heuristic.jl")
+includet("../end-heuristic/local-search-exact.jl")
 
 
 
-function solve_subgraph_decompo_ten_minutes(instance)
+function solve_subgraphdecompo_limcols(instance, nb_columns_max=400)
 
     # Budget : 600 seconds
-    time_init = 100
-    time_limit_sub_pricers = 450
-    time_cg_heuristic = 50
+    time_init = 200
+    time_limit_sub_pricers = 3600
     #time_local_search = 50
 
 
@@ -179,6 +178,9 @@ function solve_subgraph_decompo_ten_minutes(instance)
             if column !== nothing && reduced_cost < -0.001
                 add_column(master_problem, instance, pricer_sub_sn.vn_subgraph, column, true_cost)
                 nb_columns += 1
+                if nb_columns>=nb_columns_max
+                    break
+                end
             end
 
             if reduced_cost>-0.001
@@ -218,7 +220,7 @@ function solve_subgraph_decompo_ten_minutes(instance)
                 keep_on = false
                 reason="changing to full pricers to get better columns"
             end
-            if nb_columns>200*length(vn_decompo.subgraphs) || nb_columns>1000 
+            if nb_columns>=nb_columns_max 
                 keep_on=false
                 reason="too many columns generated already..."
             end
@@ -243,8 +245,13 @@ function solve_subgraph_decompo_ten_minutes(instance)
     # ======= END HEURISTICS ======= #
 
     # ---- Price n Branch heuristic
-    value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
+    time_cg_heuristic = 300
+    value_cg_heuristic_5min, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
+    time_cg_heuristic = 3600
+    time_beg_mipsolving = time()
+    value_cg_heuristic_1hour, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
+    time_spent_mipsolving = time()-time_beg_mipsolving
 
     #= ---- Large Neighbor Search
     #local_search(instance, vn_decompo, heur_sol)
@@ -256,13 +263,14 @@ function solve_subgraph_decompo_ten_minutes(instance)
     =#
 
     result = Dict()
-    result["algorithm"] = "ten-minutes"
     result["time"] = time() - time_beginning_init
     result["cg_value"] = cg_value
-    result["lower_bound"] = lower_bound
     result["nb_iter"] = nb_iter
     result["nb_col"] = nb_columns
-    result["value_cg_heuristic"] = value_cg_heuristic
+    result["value_cg_heuristic_5min"] = value_cg_heuristic_5min
+    result["value_cg_heuristic_1hour"] = value_cg_heuristic_1hour
+    result["time_in_mip"] = time_spent_mipsolving
+
 
     return result
 end
