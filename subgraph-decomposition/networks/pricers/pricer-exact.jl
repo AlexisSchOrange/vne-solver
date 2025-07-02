@@ -433,9 +433,8 @@ function update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limi
     set_time_limit_sec(model, time_limit)
     optimize!(model)
 
-    status = termination_status(model)
-
-    if status != MOI.FEASIBLE_POINT
+    status = primal_status(model)
+    if (status != MOI.FEASIBLE_POINT)
         println("Infeasible subproblem... $status")
         return nothing, 10e6, 10e6
     end

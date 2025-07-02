@@ -132,7 +132,7 @@ function solve_subgraph_decompo_one_hour(instance)
     time_beginning_sub_pricers = time()
 
     nb_substrate_subgraph = floor(Int, nv(s_network) / 15)  
-    nb_nodes_subgraph = 30
+    nb_nodes_subgraph = 28
     sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
     println("We have $nb_substrate_subgraph sub-substrate, with at least $nb_nodes_subgraph capacited nodes")
 
@@ -219,7 +219,7 @@ function solve_subgraph_decompo_one_hour(instance)
                 keep_on = false
                 reason="changing to full pricers to get better columns"
             end
-            if nb_columns>200*length(vn_decompo.subgraphs) || nb_columns>1000 
+            if nb_columns>200*length(vn_decompo.subgraphs) || nb_columns>150 
                 keep_on=false
                 reason="too many columns generated already..."
             end
