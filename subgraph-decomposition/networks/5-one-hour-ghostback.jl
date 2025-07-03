@@ -32,7 +32,7 @@ function solve_subgraph_decompo_one_hour(instance)
 
     # Budget: 3600 seconds
     time_init = 200
-    time_limit_sub_pricers = 2500
+    time_limit_sub_pricers = 2000
     time_for_full_pricers = 1000
     time_cg_heuristic = 500
     #time_local_search = 300
@@ -92,7 +92,7 @@ function solve_subgraph_decompo_one_hour(instance)
     nb_nodes_subgraph = 25
     sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
 
-    time_limit_per_pb = time_init * 1.5 / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
+    time_limit_per_pb = time_init * 2. / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
     for vn_subgraph in vn_decompo.subgraphs
         pricers = set_up_pricer_sn_decompo(instance, vn_subgraph, sn_decompo_clusters, "ghost")
         nb_col_cur = 0
@@ -132,7 +132,7 @@ function solve_subgraph_decompo_one_hour(instance)
     time_beginning_sub_pricers = time()
 
     nb_substrate_subgraph = floor(Int, nv(s_network) / 20)  
-    nb_nodes_subgraph = 30
+    nb_nodes_subgraph = 27
     sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
     println("We have $nb_substrate_subgraph sub-substrate, with at least $nb_nodes_subgraph capacited nodes")
 

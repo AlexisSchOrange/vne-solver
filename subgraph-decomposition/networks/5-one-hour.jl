@@ -31,10 +31,10 @@ function solve_subgraph_decompo_one_hour(instance)
 
 
     # Budget: 3600 seconds
-    time_init = 200
+    time_init = 250
     time_limit_sub_pricers = 1800
-    time_for_full_pricers = 1300
-    time_cg_heuristic = 500
+    time_for_full_pricers = 1300 # It's actually stupid, I changed it to use the remaining time.
+    time_cg_heuristic = 600
     #time_local_search = 300
 
 
@@ -89,10 +89,10 @@ function solve_subgraph_decompo_one_hour(instance)
 
     time_beginning_init = time()
     nb_substrate_subgraph = 20
-    nb_nodes_subgraph = 20
+    nb_nodes_subgraph = 25
     sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
 
-    time_limit_per_pb = time_init * 1.25 / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
+    time_limit_per_pb = time_init * 2. / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
     for vn_subgraph in vn_decompo.subgraphs
         pricers = set_up_pricer_sn_decompo(instance, vn_subgraph, sn_decompo_clusters, "normal")
         nb_col_cur = 0
@@ -219,7 +219,7 @@ function solve_subgraph_decompo_one_hour(instance)
                 keep_on = false
                 reason="changing to full pricers to get better columns"
             end
-            if nb_columns>200*length(vn_decompo.subgraphs) || nb_columns>1000 
+            if nb_columns>250*length(vn_decompo.subgraphs) || nb_columns>1200 
                 keep_on=false
                 reason="too many columns generated already..."
             end
@@ -235,6 +235,7 @@ function solve_subgraph_decompo_one_hour(instance)
 
     # ====== STEP 3: full pricers
     println("\n------- Solving method: Exact pricers")
+    time_for_full_pricers = 3000 - (time() -time_beginning) 
     time_beginning_full_pricers = time()
 
     pricers_full = Dict()
