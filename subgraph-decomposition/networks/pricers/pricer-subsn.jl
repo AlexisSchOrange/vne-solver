@@ -174,7 +174,7 @@ function get_sn_decompo_kahip(s_network, nb_clusters, nb_nodes_per_clusters)
     for cluster in clusters
         simple_subgraph, vmap = induced_subgraph(s_network.graph, cluster)
         if !is_connected(simple_subgraph)
-            #println("It's not connected ! :(")
+            println("One of the subgraph is not connected ! :(")
             #println("At the beginning the cluster is : $cluster")
             components = connected_components(simple_subgraph)
             component_sorted = sort(components, by=x->length(x), rev=true)
@@ -260,8 +260,10 @@ function get_sn_decompo_kahip(s_network, nb_clusters, nb_nodes_per_clusters)
         #write_added_nodes(s_network.graph, cluster, added, sub_s_network[][:name])
     end
 
-
-
+    println("Length of each substrate subgraph:")
+    for cluster in clusters
+        print(" $(length(cluster))")
+    end
     return clusters
 
 end
