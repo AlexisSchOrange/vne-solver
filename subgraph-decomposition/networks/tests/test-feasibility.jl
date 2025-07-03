@@ -8,19 +8,19 @@ using Printf
 using Statistics
 
 #general
-includet("../../utils/import_utils.jl")
+includet("../../../utils/import_utils.jl")
 
 # utils colge
-includet("utils/utils-subgraphdecompo.jl")
-includet("utils/partition-vn.jl")
-includet("utils/checkers.jl")
+includet("../utils/utils-subgraphdecompo.jl")
+includet("../utils/partition-vn.jl")
+includet("../utils/checkers.jl")
 
 # pricers
-includet("pricers/pricer-exact.jl")
-includet("pricers/pricer-subsn.jl")
+includet("../pricers/pricer-exact.jl")
+includet("../pricers/pricer-subsn.jl")
 
 # end heuristics
-includet("end-heuristic/basic-ilp.jl")
+includet("../end-heuristic/basic-ilp.jl")
 
 
 

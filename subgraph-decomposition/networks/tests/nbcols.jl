@@ -32,6 +32,7 @@ function solve_subgraphdecompo_limcols(instance, nb_columns_max=400)
     # Budget : 600 seconds
     time_init = 200
     time_limit_sub_pricers = 3600
+    time_limit_sub_pricers = 3600
     #time_local_search = 50
 
 
@@ -110,7 +111,7 @@ function solve_subgraphdecompo_limcols(instance, nb_columns_max=400)
     time_master +=  solve_time(model)
     status = termination_status(model)
     if status != MOI.OPTIMAL
-        println("Infeasible or unfinished: $status")
+        println("BIG ERROR: The master problem is unfeasible, whaaaaat: $status")
         return
     end
 
@@ -130,7 +131,7 @@ function solve_subgraphdecompo_limcols(instance, nb_columns_max=400)
     time_beginning_sub_pricers = time()
 
     nb_substrate_subgraph = floor(Int, nv(s_network) / 15)  
-    nb_nodes_subgraph = 26
+    nb_nodes_subgraph = 30
     sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
     println("We have $nb_substrate_subgraph sub-substrate, with at least $nb_nodes_subgraph capacited nodes")
 
@@ -220,7 +221,7 @@ function solve_subgraphdecompo_limcols(instance, nb_columns_max=400)
                 keep_on = false
                 reason="changing to full pricers to get better columns"
             end
-            if nb_columns>=nb_columns_max 
+            if nb_columns>=nb_columns_max || nb_columns >= 400
                 keep_on=false
                 reason="too many columns generated already..."
             end
@@ -232,6 +233,105 @@ function solve_subgraphdecompo_limcols(instance, nb_columns_max=400)
     end
     
         
+
+    
+    # ====== STEP 3: full pricers
+    println("\n------- Solving method: Exact pricers")
+    time_for_full_pricers = 2000
+    time_beginning_full_pricers = time()
+
+    pricers_full = Dict()
+    for subgraph in vn_decompo.subgraphs
+        #pricers_full[subgraph] = set_up_pricer_cons(instance, subgraph)
+        pricers_full[subgraph] = set_up_pricer(instance, subgraph)
+    end
+    
+    keep_on = true
+    if nb_columns>= nb_columns_max
+        keep_on=false
+        reason="too many columns generated already..."
+    end
+    reason = "I don't know"
+    while keep_on
+        nb_iter += 1
+
+        # ---- Pricers things
+        dual_costs = get_duals(instance, vn_decompo, master_problem)
+
+        has_found_new_column = false
+        has_finished = true
+        sum_pricers_values = 0
+
+        for vn_subgraph in vn_decompo.subgraphs
+            pricer = pricers_full[vn_subgraph]
+
+            time_limit_pricer = time_for_full_pricers - (time()-time_beginning_full_pricers)
+            if time_limit_pricer < 0.1
+                has_finished = false
+                break
+            end
+
+            sub_mapping, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limit = 100)
+
+            
+            if (!isnothing(sub_mapping)) && reduced_cost < -0.0001
+                has_found_new_column = true
+                add_column(master_problem, instance, vn_subgraph, sub_mapping, true_cost)
+                nb_columns += 1
+            end
+            
+            if isnothing(sub_mapping)
+                println("Pricer with no solution found, stopping the CG...")
+                reason="pricer-unfeasible"
+                has_found_new_column = false
+                break
+            end
+
+            sum_pricers_values += reduced_cost
+            time_subproblems += solve_time(pricer.model) 
+        end
+
+        if has_finished
+            current_lower_bound = cg_value + sum_pricers_values
+            if current_lower_bound > lower_bound && nb_iter > 3
+                lower_bound = current_lower_bound
+            end
+        end
+
+
+        # ----- Master problem stuff
+
+        optimize!(model)
+        time_master +=  solve_time(model)
+
+        cg_value = objective_value(model)
+
+        time_overall = time()-time_beginning
+        average_obj = sum_pricers_values/length(vn_decompo.subgraphs)
+
+        @printf("Iter %2d  CG bound: %10.3f  lower bound: %10.3f  %5d column  time: %5.2fs  average reduced cost: %10.3f \n",
+            nb_iter, cg_value, lower_bound, nb_columns, time_overall, average_obj)
+
+
+        if (time() - time_beginning_full_pricers) < time_for_full_pricers 
+            keep_on = true
+            if !has_found_new_column
+                keep_on = false
+                reason="no improving columns"
+            end
+        else
+            keep_on = false
+            reason="time limit"
+        end
+
+        if nb_columns>= 600
+            keep_on=false
+            reason="too many columns generated already..."
+        end
+
+
+    end
+
 
 
     print("\n==================== CG finished ====================\nReason: $reason \n")
@@ -245,8 +345,15 @@ function solve_subgraphdecompo_limcols(instance, nb_columns_max=400)
     # ======= END HEURISTICS ======= #
 
     # ---- Price n Branch heuristic
+    time_cg_heuristic = 60
+    value_cg_heuristic_1min, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
+
+
     time_cg_heuristic = 300
     value_cg_heuristic_5min, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
+
+    time_cg_heuristic = 600
+    value_cg_heuristic_10min, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
     time_cg_heuristic = 3600
     time_beg_mipsolving = time()
@@ -267,7 +374,9 @@ function solve_subgraphdecompo_limcols(instance, nb_columns_max=400)
     result["cg_value"] = cg_value
     result["nb_iter"] = nb_iter
     result["nb_col"] = nb_columns
+    result["value_cg_heuristic_1min"] = value_cg_heuristic_1min
     result["value_cg_heuristic_5min"] = value_cg_heuristic_5min
+    result["value_cg_heuristic_10min"] = value_cg_heuristic_10min
     result["value_cg_heuristic_1hour"] = value_cg_heuristic_1hour
     result["time_in_mip"] = time_spent_mipsolving
 
