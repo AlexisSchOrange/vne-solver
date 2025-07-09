@@ -32,7 +32,7 @@ function solve_subgraph_decompo_ten_minutes(instance)
     # Budget : 600 seconds
     time_init = 100
     time_limit_sub_pricers = 540
-    time_overall = 600 
+    time_limit_algorithm = 600 
     #time_local_search = 50
 
 
@@ -246,7 +246,7 @@ function solve_subgraph_decompo_ten_minutes(instance)
     # ======= END HEURISTICS ======= #
 
     # ---- Price n Branch heuristic
-    time_cg_heuristic = time_overall - (time() - time_beginning)
+    time_cg_heuristic = time_limit_algorithm - (time() - time_beginning)
     value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
 

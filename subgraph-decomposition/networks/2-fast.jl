@@ -36,7 +36,7 @@ function solve_quitefast(instance)
     # ======= SETTING UP THE DECOMPOSITION ======= #
     nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
     #v_node_partitionning = partition_graph_metis(instance.v_network.graph, nb_virtual_subgraph)
-    v_node_partitionning = partition_graph_kahip(v_network.graph, nb_virtual_subgraph)
+    v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph, max_umbalance=1.2)
 
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
     

@@ -4,7 +4,7 @@ using Statistics
 using Graphs, MetaGraphsNext
 
 includet("utils/utils-subgraphdecompo.jl")
-includet("../../heuristics/uepso.jl")
+includet("../../heuristics/mepso.jl")
 includet("utils/partition-graph.jl")
 
 
@@ -61,7 +61,7 @@ function solve_ultrafast_heuristic(instance)
         s_subgraph = sn_subgraphs[i_subgraph]
         sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
             
-        sub_mapping, cost = solve_UEPSO(sub_instance; nb_particle=25, nb_iter=50, time_max=0.2, print_things=false)
+        sub_mapping, cost = solve_mepso(sub_instance; nb_particle=25, nb_iter=50, time_max=0.2, print_things=false)
         
         if isnothing(sub_mapping) # invalid submapping!
             result = Dict()

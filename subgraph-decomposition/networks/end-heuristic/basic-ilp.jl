@@ -12,7 +12,8 @@ function basic_heuristic(instance, vn_decompo, master_problem, time_max)
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
 
-
+    println("I have: $time_max")
+    
     model = Model(CPLEX.Optimizer)
     set_up_problem(instance, vn_decompo, model)
     set_time_limit_sec(model, time_max)
