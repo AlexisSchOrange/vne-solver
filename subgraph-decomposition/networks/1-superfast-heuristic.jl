@@ -131,6 +131,15 @@ function route_cut_edges(instance, vn_decompo, v_node_placement, edge_routing)
     s_network_dir_copy = deepcopy(instance.s_network_dir)
     additional_cost = 0
 
+
+
+
+    # dstmax matrix
+    distmx = zeros(Int, nv(s_network_dir_copy), nv(s_network_dir_copy))
+    for s_edge in edges(s_network_dir_copy)
+        distmx[src(s_edge), dst(s_edge)] = get_attribute_edge(s_network_dir_copy, s_edge, :cost)
+    end
+
     # tackle the v_edges already done
     for v_edge in keys(edge_routing)
 
@@ -148,13 +157,6 @@ function route_cut_edges(instance, vn_decompo, v_node_placement, edge_routing)
             end
         end
 
-    end
-
-
-    # dstmax matrix
-    distmx = zeros(Int, nv(s_network_dir_copy), nv(s_network_dir_copy))
-    for s_edge in edges(s_network_dir_copy)
-        distmx[src(s_edge), dst(s_edge)] = get_attribute_edge(s_network_dir_copy, s_edge, :cost)
     end
     
     for v_edge in vn_decompo.v_edges_master

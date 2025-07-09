@@ -263,6 +263,7 @@ function solve_subgraph_decompo_ten_minutes(instance)
     result["algorithm"] = "ten-minutes"
     result["time"] = time() - time_beginning_init
     result["cg_value"] = cg_value
+    result["lower_bound"] = 0.
     result["nb_iter"] = nb_iter
     result["nb_col"] = nb_columns
     result["value_cg_heuristic"] = value_cg_heuristic
