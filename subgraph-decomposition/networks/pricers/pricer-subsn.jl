@@ -1,5 +1,5 @@
 includet("../../../utils/import_utils.jl")
-includet("../../../utils/metis_wrapper.jl")
+includet("../utils/partition-graph.jl")
 
 using CPLEX, JuMP
 
@@ -53,44 +53,12 @@ end
 
 # computing the sn subgraphs, using a partition of the sn network again..
 function get_sn_decompo(s_network, nb_clusters, nb_nodes_per_clusters)
-
-
-    graph = instance.v_network.graph
     
     #1) Partitionning. Since connectivity is enforced, sometime, it will not the best and quite unbalanced,
-    # thus is do some different imbalance. It's very fast, and sometime, it's more balanced... Go understand why!
-    println("$nb_clusters clusters to do... Partitionning done with METIS!")
-    best_clusters = nothing
-    best_imb = 10000
-    imb = [1.01, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3]
-    for imbalance in imb
-        partition = partition_metis(graph, nb_clusters, imbalance)
-
-        clusters = [Vector{Int64}() for i in 1:nb_clusters]
-        for s_node in vertices(graph)
-            push!(clusters[partition[s_node]], s_node)
-        end
-
-        moyenne = mean([length(cluster) for cluster in clusters])
-        current_imb = maximum([length(cluster) / moyenne for cluster in clusters])
-        if current_imb < 1.10
-            best_clusters = clusters
-            best_imb = current_imb
-            break
-        end
-        if current_imb < best_imb
-            best_imb = current_imb
-            best_clusters = clusters
-        end
-    end
-    
-    println("Best partition found has imbalance of $best_imb.")
-
-
+    clusters = partition_graph(s_network.graph, nb_clusters, max_umbalance=1.5)
 
 
     # 2) adding nodes. For now, any adjacent nodes will do.
-    clusters = best_clusters
     i_cluster = 1
     subgraphs = []
 
@@ -160,7 +128,7 @@ end
 function get_sn_decompo_kahip(s_network, nb_clusters, nb_nodes_per_clusters)
 
 
-    # 1 : Partitionner
+    # 1 : Partitionning, with metis now...
     inbalance = 0.10
     partition = partition_kahip(s_network.graph, nb_clusters, inbalance)
     clusters = [Vector{Int64}() for i in 1:nb_clusters]

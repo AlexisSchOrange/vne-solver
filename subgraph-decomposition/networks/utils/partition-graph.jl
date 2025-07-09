@@ -6,9 +6,64 @@ includet("../../../utils/metis_wrapper.jl")
 
 using Statistics
 
-function partition_vn(instance, nb_clusters)
 
-    graph = instance.v_network.graph
+
+
+function partition_graph(graph, nb_clusters; max_umbalance=1.1)
+
+    # FIRST, do it with Kahip... 
+    clusters = partition_graph_kahip(graph, nb_clusters)
+
+    moyenne = mean([length(cluster) for cluster in clusters])
+    current_imb = maximum([length(cluster) / moyenne for cluster in clusters])
+
+    if current_imb < max_umbalance
+        return clusters
+    end
+
+    
+    # If very poorly balanced, do it with METIS !
+    # Since connectivity is enforced, sometime, it will not the best
+    best_clusters = nothing
+    best_imb = 10000
+    imb = [1.01, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3]
+    #imb = [1.05]
+    for imbalance in imb
+        partition = partition_metis(graph, nb_clusters, imbalance)
+
+        clusters = [Vector{Int64}() for i in 1:nb_clusters]
+        for s_node in vertices(graph)
+            push!(clusters[partition[s_node]], s_node)
+        end
+
+        moyenne = mean([length(cluster) for cluster in clusters])
+        current_imb = maximum([length(cluster) / moyenne for cluster in clusters])
+        if current_imb < 1.10
+            best_clusters = clusters
+            best_imb = current_imb
+            break
+        end
+        if current_imb < best_imb
+            best_imb = current_imb
+            best_clusters = clusters
+        end
+    end
+    
+    #println("Best partition found has imbalance of $best_imb.")
+
+    return best_clusters
+
+
+end
+
+
+
+
+
+
+
+function partition_graph_kahip(graph, nb_clusters)
+
     
     # 1 : Partitionner
     inbalance = 0.1
@@ -22,6 +77,7 @@ function partition_vn(instance, nb_clusters)
     for cluster in clusters
         simple_subgraph, vmap = induced_subgraph(graph, cluster)
         if !is_connected(simple_subgraph)
+            #print("Issue with unconnected subgraphs to correct...")
             components = connected_components(simple_subgraph)
             component_sorted = sort(components, by=x->length(x), rev=true)
             for subcluster in component_sorted[2:length(component_sorted)]
@@ -46,7 +102,7 @@ function partition_vn(instance, nb_clusters)
     end
     
     
-    # equilibrating virtual subgraphs, to get all of them pretty close...
+    #= equilibrating virtual subgraphs, to get all of them pretty close...
     target_size = nv(instance.v_network) / nb_clusters
     max_size = maximum(length(cluster) for cluster in clusters)
     min_size = minimum(length(cluster) for cluster in clusters)
@@ -104,7 +160,7 @@ function partition_vn(instance, nb_clusters)
             break
         end
     end
-
+    =#
 
     return clusters
 
@@ -118,10 +174,11 @@ function partition_vn_metis(instance, nb_clusters)
     graph = instance.v_network.graph
     
     # Partitionning. Since connectivity is enforced, sometime, it will not the best
-    println("$nb_clusters clusters to do... Partitionning done with METIS!")
+    println("$nb_clusters clusters to do... Partitionning with METIS!")
     best_clusters = nothing
     best_imb = 10000
     imb = [1.01, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3]
+    #imb = [1.05]
     for imbalance in imb
         partition = partition_metis(graph, nb_clusters, imbalance)
 

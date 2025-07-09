@@ -13,7 +13,7 @@ includet("../../utils/import_utils.jl")
 
 # utils colge
 includet("utils/utils-subgraphdecompo.jl")
-includet("utils/partition-vn.jl")
+includet("utils/partition-graph.jl")
 includet("utils/checkers.jl")
 
 # pricers
@@ -31,8 +31,8 @@ function solve_subgraph_decompo_ten_minutes(instance)
 
     # Budget : 600 seconds
     time_init = 100
-    time_limit_sub_pricers = 450
-    time_cg_heuristic = 50
+    time_limit_sub_pricers = 540
+    time_overall = 600 
     #time_local_search = 50
 
 
@@ -46,7 +46,7 @@ function solve_subgraph_decompo_ten_minutes(instance)
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
     nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
-    v_node_partitionning = partition_vn(instance, nb_virtual_subgraph)
+    v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph, max_umbalance=1.2)
 
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
     
@@ -89,9 +89,9 @@ function solve_subgraph_decompo_ten_minutes(instance)
     time_beginning_init = time()
     nb_substrate_subgraph = 15
     nb_nodes_subgraph = 20
-    sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
+    sn_decompo_clusters = get_sn_decompo(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
 
-    time_limit_per_pb = (1.25*time_init) / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
+    time_limit_per_pb = (2*time_init) / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
     for vn_subgraph in vn_decompo.subgraphs
         pricers = set_up_pricer_sn_decompo(instance, vn_subgraph, sn_decompo_clusters, "normal")
         nb_col_cur = 0
@@ -129,10 +129,13 @@ function solve_subgraph_decompo_ten_minutes(instance)
     println("------- Part 2: Reduced pricers")
 
     time_beginning_sub_pricers = time()
-
+    time_for_smaller_pricers = time_limit_sub_pricers - (time() - time_beginning)
+    # parameters
     nb_substrate_subgraph = floor(Int, nv(s_network) / 15)  
-    nb_nodes_subgraph = 26
-    sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
+    nb_nodes_subgraph = 25
+    max_nb_columns = 800
+
+    sn_decompo_clusters = get_sn_decompo(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
     println("We have $nb_substrate_subgraph sub-substrate, with at least $nb_nodes_subgraph capacited nodes")
 
     pricers_sn_decompo = OrderedDict()
@@ -168,7 +171,7 @@ function solve_subgraph_decompo_ten_minutes(instance)
 
             pricer_sub_sn = couple[1]
 
-            time_limit_subpb = minimum([10., time_limit_sub_pricers - (time()-time_beginning_sub_pricers)])
+            time_limit_subpb = minimum([10., time_for_smaller_pricers - (time()-time_beginning_sub_pricers)])
             if time_limit_subpb < 0.01
                 break
             end
@@ -212,13 +215,13 @@ function solve_subgraph_decompo_ten_minutes(instance)
         # ----- useful things
 
         time_sub_pricers = time() - time_beginning_sub_pricers
-        if time_sub_pricers < time_limit_sub_pricers
+        if time_sub_pricers < time_for_smaller_pricers
             keep_on = true
             if nb_desactivated_pricers >= nb_sub_pricers   
                 keep_on = false
                 reason="changing to full pricers to get better columns"
             end
-            if nb_columns>200*length(vn_decompo.subgraphs) || nb_columns>1000 
+            if nb_columns>max_nb_columns 
                 keep_on=false
                 reason="too many columns generated already..."
             end
@@ -243,6 +246,7 @@ function solve_subgraph_decompo_ten_minutes(instance)
     # ======= END HEURISTICS ======= #
 
     # ---- Price n Branch heuristic
+    time_cg_heuristic = time_overall - (time() - time_beginning)
     value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
 
@@ -259,7 +263,6 @@ function solve_subgraph_decompo_ten_minutes(instance)
     result["algorithm"] = "ten-minutes"
     result["time"] = time() - time_beginning_init
     result["cg_value"] = cg_value
-    result["lower_bound"] = lower_bound
     result["nb_iter"] = nb_iter
     result["nb_col"] = nb_columns
     result["value_cg_heuristic"] = value_cg_heuristic

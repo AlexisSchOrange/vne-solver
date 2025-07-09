@@ -5,7 +5,8 @@ using Graphs, MetaGraphsNext
 
 includet("utils/utils-subgraphdecompo.jl")
 includet("../../heuristics/uepso.jl")
-includet("utils/partition-vn.jl")
+includet("../../heuristics/mepso.jl")
+includet("utils/partition-graph.jl")
 
 # end heuristics
 includet("end-heuristic/basic-ilp.jl")
@@ -34,7 +35,8 @@ function solve_quitefast(instance)
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
     nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
-    v_node_partitionning = partition_vn(instance, nb_virtual_subgraph)
+    #v_node_partitionning = partition_graph_metis(instance.v_network.graph, nb_virtual_subgraph)
+    v_node_partitionning = partition_graph_kahip(v_network.graph, nb_virtual_subgraph)
 
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
     
@@ -56,7 +58,7 @@ function solve_quitefast(instance)
 
     # Decompose the substrate network into the same number of subgraph
     sn_subgraphs = []
-    s_node_partitionning = partition_graph_metis(instance.s_network.graph, nb_virtual_subgraph)
+    s_node_partitionning = partition_graph(instance.s_network.graph, nb_virtual_subgraph,  max_umbalance=1.3)
     for (i_cluster, cluster) in enumerate(s_node_partitionning)
         sub_s_network = my_induced_subgraph(s_network, cluster, "sub_sn_$i_cluster")
         push!(sn_subgraphs, Subgraph(sub_s_network, cluster))
@@ -72,16 +74,12 @@ function solve_quitefast(instance)
         for s_subgraph in sn_subgraphs
             sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
                 
-            sub_mapping, cost = solve_UEPSO(sub_instance; nb_particle=25, nb_iter=50, time_max=0.1, print_things=false)
-            # Need to correct the mapping here!
+            sub_mapping, cost = solve_mepso(sub_instance; nb_particle=25, nb_iter=50, time_max=0.25, print_things=false)
+            # Need to correct the mapping here
             
             if isnothing(sub_mapping) # invalid submapping!
-                result = Dict()
-                result["mapping"] = nothing
-                result["mapping_cost"] = -1
-                result["time"] = time() - time_beginning         
+                continue  
             end
-            
             true_cost = 0
 
             node_placement = []
@@ -127,43 +125,6 @@ function solve_quitefast(instance)
 end
 
 
-
-
-
-
-
-function partition_graph_metis(graph, nb_clusters)
-    
-    # Partitionning. Since connectivity is enforced, sometime, it will not the best
-    println("$nb_clusters clusters to do... Partitionning done with METIS!")
-    best_clusters = nothing
-    best_imb = 10000
-    imb = [1.01, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3]
-    for imbalance in imb
-        partition = partition_metis(graph, nb_clusters, imbalance)
-
-        clusters = [Vector{Int64}() for i in 1:nb_clusters]
-        for s_node in vertices(graph)
-            push!(clusters[partition[s_node]], s_node)
-        end
-
-        moyenne = mean([length(cluster) for cluster in clusters])
-        current_imb = maximum([length(cluster) / moyenne for cluster in clusters])
-        if current_imb < 1.10
-            best_clusters = clusters
-            best_imb = current_imb
-            break
-        end
-        if current_imb < best_imb
-            best_imb = current_imb
-            best_clusters = clusters
-        end
-    end
-    
-    println("Best partition found has imbalance of $best_imb.")
-
-    return best_clusters
-end
 
 
 

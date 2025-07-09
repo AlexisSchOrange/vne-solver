@@ -16,7 +16,6 @@ includet("import_utils.jl")
 
 function partition_kahip(g, nb_clusters, imbalance)
 
-    println("CAREFUL: YOU ARE USING KAHIP. \nTHIS SHOULD NOT BE.")
     xadj, adjncy = graph_to_csr(g)
 
     # adapt it for c, because they start indexing at 0 lol

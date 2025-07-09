@@ -12,7 +12,7 @@ struct Path
 end
 
 function Path()
-    return Path(1, 1, [], 10000)
+    return Path(0, 0, [], 10000)
 end
 
 

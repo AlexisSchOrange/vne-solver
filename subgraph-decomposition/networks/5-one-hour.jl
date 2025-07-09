@@ -13,7 +13,7 @@ includet("../../utils/import_utils.jl")
 
 # utils colge
 includet("utils/utils-subgraphdecompo.jl")
-includet("utils/partition-vn.jl")
+includet("utils/partition-graph.jl")
 includet("utils/checkers.jl")
 
 # pricers
@@ -33,8 +33,8 @@ function solve_subgraph_decompo_one_hour(instance)
     # Budget: 3600 seconds
     time_init = 250
     time_limit_sub_pricers = 1800
-    time_for_full_pricers = 1300 # It's actually stupid, I changed it to use the remaining time.
-    time_cg_heuristic = 600
+    time_limit_for_full_pricers = 3300
+    time_cg_heuristic = 300
     #time_local_search = 300
 
 
@@ -47,7 +47,7 @@ function solve_subgraph_decompo_one_hour(instance)
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
     nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
-    v_node_partitionning = partition_vn(instance, nb_virtual_subgraph)
+    v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph, max_umbalance=1.2)
 
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
     
@@ -90,7 +90,7 @@ function solve_subgraph_decompo_one_hour(instance)
     time_beginning_init = time()
     nb_substrate_subgraph = 20
     nb_nodes_subgraph = 25
-    sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
+    sn_decompo_clusters = get_sn_decompo(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
 
     time_limit_per_pb = time_init * 2. / (nb_substrate_subgraph*length(vn_decompo.subgraphs))
     for vn_subgraph in vn_decompo.subgraphs
@@ -133,7 +133,7 @@ function solve_subgraph_decompo_one_hour(instance)
 
     nb_substrate_subgraph = floor(Int, nv(s_network) / 15)  
     nb_nodes_subgraph = 30
-    sn_decompo_clusters = get_sn_decompo_kahip(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
+    sn_decompo_clusters = get_sn_decompo(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
     println("We have $nb_substrate_subgraph sub-substrate, with at least $nb_nodes_subgraph capacited nodes")
 
     pricers_sn_decompo = OrderedDict()
@@ -219,7 +219,7 @@ function solve_subgraph_decompo_one_hour(instance)
                 keep_on = false
                 reason="changing to full pricers to get better columns"
             end
-            if nb_columns>250*length(vn_decompo.subgraphs) || nb_columns>1200 
+            if nb_columns>1300 #nb_columns>250*length(vn_decompo.subgraphs) 
                 keep_on=false
                 reason="too many columns generated already..."
             end
@@ -235,7 +235,7 @@ function solve_subgraph_decompo_one_hour(instance)
 
     # ====== STEP 3: full pricers
     println("\n------- Solving method: Exact pricers")
-    time_for_full_pricers = 3000 - (time() -time_beginning) 
+    time_for_full_pricers = time_limit_for_full_pricers - (time() -time_beginning) 
     time_beginning_full_pricers = time()
 
     pricers_full = Dict()
@@ -265,7 +265,7 @@ function solve_subgraph_decompo_one_hour(instance)
                 break
             end
 
-            sub_mapping, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limit = 100)
+            sub_mapping, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limit = time_limit_pricer)
 
             
             if (!isnothing(sub_mapping)) && reduced_cost < -0.0001
@@ -283,6 +283,12 @@ function solve_subgraph_decompo_one_hour(instance)
 
             sum_pricers_values += reduced_cost
             time_subproblems += solve_time(pricer.model) 
+
+            time_limit_pricer = time_for_full_pricers - (time()-time_beginning_full_pricers)
+            if time_limit_pricer < 0.1
+                has_finished = false
+                break
+            end
         end
 
         if has_finished
@@ -335,6 +341,7 @@ function solve_subgraph_decompo_one_hour(instance)
     # ======= END HEURISTICS ======= #
 
     # ---- Price n Branch heuristic
+    time_cg_heuristic = 300
     value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
 

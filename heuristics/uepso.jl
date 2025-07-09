@@ -7,7 +7,7 @@ includet("shortest-path-routing.jl")
 
 
 
-function solve_UEPSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_things=true)
+function solve_UEPSO(instance; nb_particle=25, nb_iter=50, time_max=10, print_things=true)
 
 
     time_start = time()
@@ -140,7 +140,7 @@ function solve_UEPSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
 
     end
 
-    print_things && println("UEPSO finished at iteration $nb_iter, best solution: $global_best_cost")
+    print_things && println("UEPSO finished at iteration $nb_iter, in $(time()-time_start)s, best solution: $global_best_cost")
 
     if isnothing(global_best) # Need to correct this someday...
         return nothing, 99999

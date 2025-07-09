@@ -11,7 +11,7 @@ includet("../../utils/import_utils.jl")
 
 # utils colge
 includet("utils/utils-subgraphdecompo.jl")
-includet("utils/partition-vn.jl")
+includet("utils/partition-graph.jl")
 includet("utils/checkers.jl")
 
 # pricers
@@ -40,7 +40,7 @@ function solve_chill(instance)
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
     nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
-    v_node_partitionning = partition_vn(instance, nb_virtual_subgraph)
+    v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph)
 
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
     
@@ -64,7 +64,8 @@ function solve_chill(instance)
 
     println("Paving time...")
     time_0 = time()
-    nb_column_per_subgraph = 35
+    # max 300 columns, or 50 per subgraphs.
+    nb_column_per_subgraph = floor(Int,400/nb_virtual_subgraph)
     mappings = init_uepso(instance, vn_decompo, nb_column_per_subgraph)
     println("Mappings gotten! In just $(time() - time_0)")
     for v_subgraph in vn_decompo.subgraphs

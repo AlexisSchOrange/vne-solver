@@ -13,7 +13,7 @@ includet("../../utils/import_utils.jl")
 
 # utils colge
 includet("utils/utils-subgraphdecompo.jl")
-includet("utils/partition-vn.jl")
+includet("utils/partition-graph.jl")
 includet("utils/checkers.jl")
 
 # pricers
@@ -47,7 +47,7 @@ function solve_subgraph_decompo_one_hour(instance)
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
     nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
-    v_node_partitionning = partition_vn(instance, nb_virtual_subgraph)
+    v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph)
 
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
     

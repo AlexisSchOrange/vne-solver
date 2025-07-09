@@ -3,6 +3,10 @@ includet("../../../utils/import_utils.jl")
 includet("../../../utils/metis_wrapper.jl")
 
 includet("../../../heuristics/uepso.jl")
+#includet("../../../heuristics/pso2.jl")
+includet("../../../heuristics/pso.jl")
+includet("../../../heuristics/mepso.jl")
+
 includet("../utils/utils-subgraphdecompo.jl")
 
 
@@ -29,11 +33,12 @@ function init_uepso(instance, vn_decompo, nb_columns)
 
             sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
             
-            sub_mapping, cost = solve_UEPSO(sub_instance; nb_particle=25, nb_iter=50, time_max=0.1, print_things=false)
+            sub_mapping, cost = solve_mepso(sub_instance; nb_particle=30, nb_iter=50, time_max=0.25, print_things=false)
 
-            
+            if isnothing(sub_mapping)
+                continue
+            end
             true_cost = 0
-
             node_placement = []
             for v_node in vertices(v_subgraph.graph)
                 real_s_node = s_subgraph.nodes_of_main_graph[sub_mapping.node_placement][v_node]
