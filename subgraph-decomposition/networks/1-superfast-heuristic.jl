@@ -114,7 +114,7 @@ function solve_ultrafast_heuristic(instance)
 
     result = Dict()
     result["mapping"] = Mapping(v_network, s_network, node_placement, edge_routing)
-    result["mapping_cost"] = round(Int, overall_cost) 
+    result["value_cg_heuristic"] = round(Int, overall_cost) 
     result["time_solving"] = (time() - time_beginning)
     return result
 end
@@ -130,8 +130,6 @@ function route_cut_edges(instance, vn_decompo, v_node_placement, edge_routing)
     s_network_dir = instance.s_network_dir
     s_network_dir_copy = deepcopy(instance.s_network_dir)
     additional_cost = 0
-
-
 
 
     # dstmax matrix
