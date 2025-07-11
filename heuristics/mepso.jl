@@ -304,6 +304,20 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
 
+
+    #---- Make sure there are enough capacited nodes
+    nodes_with_caps = 0
+    for s_node in vertices(s_network)
+        if s_network[s_node][:cap] >= 1
+            nodes_with_caps += 1
+        end
+    end
+    if nodes_with_caps < nv(v_network)
+        return nothing, 10e9
+    end
+
+
+
     #---- usefull things for the resolution
     node_capacities = [get_attribute_node(s_network, s_node, :cap) for s_node in vertices(s_network)]
     node_costs = [get_attribute_node(s_network, s_node, :cost) for s_node in vertices(s_network)]

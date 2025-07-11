@@ -81,7 +81,7 @@ function solve_varying(instance)
 
 
     result = Dict()
-    result["algo"] = "chiller-subgraph-decompo"
+    result["algo"] = "SHEEESH"
     result["time_solving"] = time() - time_beginning
     result["value_cg_heuristic"] = value_cg_heuristic
 
@@ -110,48 +110,46 @@ function init_varying_partition(instance, vn_decompo)
 
     while length(mappings) < 300
         clusters = partition_graph_kahip_random_seed(s_network.graph, nb_cluster)
-
         for (i_cluster, cluster) in enumerate(clusters) 
             induced_subg = my_induced_subgraph(s_network, cluster, "sub_sn_$i_cluster")
             s_subgraph = Subgraph(induced_subg, cluster)
 
             for v_subgraph in vn_decompo.subgraphs 
 
-                
+                println("Allo, $v_subgraph, $s_subgraph")
                 sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
             
-                for i in 1:1 # let's do 3 everytime
 
-                    sub_mapping, cost = solve_mepso(sub_instance; nb_particle=30, nb_iter=50, time_max=0.25, print_things=false)
+                sub_mapping, cost = solve_mepso(sub_instance; nb_particle=30, nb_iter=50, time_max=0.25, print_things=false)
 
-                    if isnothing(sub_mapping)
-                        continue
-                    end
-
-                    true_cost = 0
-                    node_placement = []
-                    for v_node in vertices(v_subgraph.graph)
-                        real_s_node = s_subgraph.nodes_of_main_graph[sub_mapping.node_placement][v_node]
-                        append!(node_placement, real_s_node)
-                        true_cost += s_network[real_s_node][:cost]
-                    end
-        
-        
-                    edge_routing = Dict()
-                    for v_edge in edges(v_subgraph.graph)
-                        used_edges = []
-                        for s_edge in sub_mapping.edge_routing[v_edge].edges
-                            real_s_edge = get_edge(s_network_dir, s_subgraph.nodes_of_main_graph[src(s_edge)], s_subgraph.nodes_of_main_graph[dst(s_edge)])
-                            push!(used_edges, real_s_edge)
-                            true_cost += s_network_dir[src(real_s_edge), dst(real_s_edge)][:cost]
-                        end
-                        edge_routing[v_edge] = order_path(s_network_dir, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 
-                    end
-                    real_sub_mapping = Mapping(v_subgraph.graph, s_network_dir, node_placement, edge_routing)
-        
-                    push!(mappings, real_sub_mapping)
-                    push!(mappings_per_subgraph[v_subgraph], real_sub_mapping)
+                if isnothing(sub_mapping)
+                    print("NBite")
+                    continue
                 end
+
+                true_cost = 0
+                node_placement = []
+                for v_node in vertices(v_subgraph.graph)
+                    real_s_node = s_subgraph.nodes_of_main_graph[sub_mapping.node_placement][v_node]
+                    append!(node_placement, real_s_node)
+                    true_cost += s_network[real_s_node][:cost]
+                end
+    
+    
+                edge_routing = Dict()
+                for v_edge in edges(v_subgraph.graph)
+                    used_edges = []
+                    for s_edge in sub_mapping.edge_routing[v_edge].edges
+                        real_s_edge = get_edge(s_network_dir, s_subgraph.nodes_of_main_graph[src(s_edge)], s_subgraph.nodes_of_main_graph[dst(s_edge)])
+                        push!(used_edges, real_s_edge)
+                        true_cost += s_network_dir[src(real_s_edge), dst(real_s_edge)][:cost]
+                    end
+                    edge_routing[v_edge] = order_path(s_network_dir, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 
+                end
+                real_sub_mapping = Mapping(v_subgraph.graph, s_network_dir, node_placement, edge_routing)
+    
+                push!(mappings, real_sub_mapping)
+                push!(mappings_per_subgraph[v_subgraph], real_sub_mapping)
 
             end
         end
