@@ -116,14 +116,12 @@ function init_varying_partition(instance, vn_decompo)
 
             for v_subgraph in vn_decompo.subgraphs 
 
-                println("Allo, $v_subgraph, $s_subgraph")
                 sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
             
 
                 sub_mapping, cost = solve_mepso(sub_instance; nb_particle=30, nb_iter=50, time_max=0.25, print_things=false)
 
                 if isnothing(sub_mapping)
-                    print("NBite")
                     continue
                 end
 
