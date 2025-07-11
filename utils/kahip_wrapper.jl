@@ -107,7 +107,7 @@ function simplified_kaffpa(xadj, adjncy, nparts, imbalance)
     n = Int32(length(xadj)-1)  # Number of vertices
 
     suppress_output = true  # Suppress output
-    seed = Int32(42)  # Random seed
+    seed = Int32(5)
     mode = Int32(0)  # Mode (e.g., FAST)
     
     nparts = Int32(nparts)
@@ -174,3 +174,47 @@ function kaffpa(n::Int32,
     # Return results
     return edgecut[], part
 end
+
+
+
+
+function disturbed_kahip_seed(g, nb_cluster, imbalance)
+
+    # Set weights between 1 and 3 ?
+
+    # change the seed?
+
+    # add edges, remove edges ?
+
+    xadj, adjncy = graph_to_csr(g)
+
+    # adapt it for c, because they start indexing at 0 lol
+    for i in 1:length(adjncy)
+        adjncy[i] = adjncy[i] - 1
+    end
+
+    n = Int32(length(xadj)-1)  # Number of vertices
+
+    suppress_output = true  # Suppress output
+    seed = Int32(rand(1:5000))
+    mode = Int32(0)  # Mode (e.g., FAST)
+    
+    nparts = Int32(nb_cluster)
+    imbalance = Float64(imbalance)
+
+    xadj = Vector{Int32}(xadj)
+    adjncy = Vector{Int32}(adjncy)
+
+    edgecut, part = kaffpa(n, xadj, adjncy, nparts, imbalance, suppress_output, seed, mode)
+
+
+    # adapt it for julia, because we start indexing at 1 lol
+    for i in 1:length(part)
+        part[i] = part[i] + 1
+    end
+
+    return part
+
+
+end
+

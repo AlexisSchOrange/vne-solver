@@ -54,10 +54,6 @@ end
 
 function simplified_kway(xadj, adjncy, nparts, imbalance)
     n = Int32(length(xadj)-1)  # Number of vertices
-
-    suppress_output = true  # Suppress output
-    seed = Int32(42)  # Random seed
-    mode = Int32(0)  # Mode (e.g., FAST)
     
     nparts = Int32(nparts)
     imbalance = Float64(imbalance)
@@ -109,6 +105,9 @@ function metis_kway(n::Int32,
     METIS_OPTION_CONTIG = 11
     options[METIS_OPTION_CONTIG+1] = 1
     
+    METIS_OPTION_SEED = 12
+    options[METIS_OPTION_SEED+1] = 9323
+
 
     METIS_OPTION_UFACTOR = 16
     options[METIS_OPTION_UFACTOR+1] = 1 # this has no effect in my tests, remove it ?

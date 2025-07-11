@@ -2,6 +2,8 @@ using Graphs, MetaGraphsNext
 using GraphRecipes
 using Plots
 using Colors
+using  NetworkLayout
+
 
 function visu_graph(g)
     w = []
@@ -116,39 +118,38 @@ function write_added_nodes(g, nodes, added, name)
 end
 
 
-# Visu de la solution !
 
 
+function visu_graph_fixed(g)
+    pos = spring(g; iterations=2000)
+    x = [pos[i][1] for i in 1:nv(g)]
+    y = [pos[i][2] for i in 1:nv(g)]
 
-# visu perfo profile
+    graphplot(g, 
+        x=x,
+        y=y,
+        node_shape=:circle, 
+        node_size = 2.)
+end
 
-function performance_profile(times, names_algo)
-    time_max = maximum([sum(times[i]) for i in 1:length(times)])
-    plot(fmt = :png)
 
-    for (i_algo, times) in enumerate(times)
+function visu_partitionning_fixed(g, partitionning)
+    pos = spring(g; iterations=2000)
+    x = [pos[i][1] for i in 1:nv(g)]
+    y = [pos[i][2] for i in 1:nv(g)]
 
-        x = [0.]
-        y = [0.]
-
-        nb_instance = 0
-        nb_total_instances = length(times)
-        time_total = 0.
-
-        for time in times
-            push!(y, nb_instance/nb_total_instances)
-            nb_instance +=1
-            push!(y, nb_instance/nb_total_instances)
-
-            time_total += time
-            push!(x, time_total)
-            push!(x, time_total)
-        end
-        push!(x, time_max)
-        push!(y, 1.)
-
-        plot!(x, y, label = names_algo[i_algo], legend = :bottomright, xaxis = "Time (s)", yaxis = "% solved instances",linewidth=3)
+    colors = distinguishable_colors(length(partitionning), [RGB(1,1,1), RGB(0,0,0)], dropseed=true)
+    marker_cols = []
+    for i_node in 1:nv(g)
+        push!(marker_cols, colors[partitionning[i_node]])
     end
 
-    savefig("benchmark_results.pdf" )# Display the plot
+
+    graphplot(g, 
+        x=x,
+        y=y,
+        node_shape=:circle, 
+        markercolor=marker_cols,
+        node_size = 2.)
 end
+
