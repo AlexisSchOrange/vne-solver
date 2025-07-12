@@ -166,7 +166,8 @@ function partition_graph_kahip_random_seed(graph, nb_clusters)
     
     # 1 : Partitionner
     inbalance = 0.1
-    partition = partition_kahip(graph, nb_clusters, inbalance)
+    partition = disturbed_kahip_seed(graph, nb_clusters, inbalance)
+    println("Partition of SN graph: $partition")
     clusters = [Vector{Int64}() for i in 1:nb_clusters]
     for s_node in vertices(graph)
         push!(clusters[partition[s_node]], s_node)
