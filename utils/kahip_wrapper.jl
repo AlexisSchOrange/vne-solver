@@ -107,7 +107,7 @@ function simplified_kaffpa(xadj, adjncy, nparts, imbalance)
     n = Int32(length(xadj)-1)  # Number of vertices
 
     suppress_output = true  # Suppress output
-    seed = Int32(5)
+    seed = Int32(0)
     mode = Int32(0)  # Mode (e.g., FAST)
     
     nparts = Int32(nparts)
@@ -117,9 +117,6 @@ function simplified_kaffpa(xadj, adjncy, nparts, imbalance)
     adjncy = Vector{Int32}(adjncy)
 
     edgecut, part = kaffpa(n, xadj, adjncy, nparts, imbalance, suppress_output, seed, mode)
-
-    #println("Edge cut: $edgecut")
-    #println("Partition: $part")
 
     return(edgecut, part)
 
@@ -196,7 +193,7 @@ function disturbed_kahip_seed(g, nb_cluster, imbalance)
     n = Int32(length(xadj)-1)  # Number of vertices
 
     suppress_output = true  # Suppress output
-    seed = Int32(rand(1:5000))
+    seed = Int32(0)
     mode = Int32(0)  # Mode (e.g., FAST)
     
     nparts = Int32(nb_cluster)

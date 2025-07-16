@@ -9,10 +9,10 @@ using Statistics
 
 
 
-function partition_graph(graph, nb_clusters; max_umbalance=1.1)
+function partition_graph(graph, nb_clusters; max_umbalance=1.15)
 
     # FIRST, do it with Kahip... 
-    clusters = partition_graph_kahip(graph, nb_clusters)
+    clusters = partition_graph_kahip(graph, nb_clusters, inbalance=max_umbalance-1)
 
     moyenne = mean([length(cluster) for cluster in clusters])
     current_imb = maximum([length(cluster) / moyenne for cluster in clusters])
@@ -21,6 +21,7 @@ function partition_graph(graph, nb_clusters; max_umbalance=1.1)
         return clusters
     end
 
+    println("KAHIP isnt balanced enough, using Metis...")
     
     # If very poorly balanced, do it with METIS !
     # Since connectivity is enforced, sometime, it will not the best
@@ -62,11 +63,10 @@ end
 
 
 
-function partition_graph_kahip(graph, nb_clusters)
+function partition_graph_kahip(graph, nb_clusters; inbalance = 0.1)
 
     
     # 1 : Partitionner
-    inbalance = 0.1
     partition = partition_kahip(graph, nb_clusters, inbalance)
     clusters = [Vector{Int64}() for i in 1:nb_clusters]
     for s_node in vertices(graph)

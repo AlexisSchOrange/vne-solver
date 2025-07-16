@@ -127,6 +127,7 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
 
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
+        println("Infeasible or unfinished: $status")
         result = Dict()
         result["mapping"] = nothing
         result["sol_value"] = -1
@@ -134,43 +135,39 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
         result["gap"]  = -1.
         result["node_count"] = node_count(model)
         result["time_solving"] = time() - time_start    
-        println("Infeasible or unfinished: $status")
         return result
     end
 
-    println("nb de noeuds: $(node_count(model))")
-    println("Lower bound: $(objective_bound(model))")
-    println("The objective is : $(objective_value(model))")
 
-    #=
-    if !stay_silent
 
-        x_values = value.(model[:x])
-        y_values = value.(model[:y])
+
+    # Get the solution
+    x_values = value.(model[:x])
+    y_values = value.(model[:y])
     
-        #println("Node placement:")
-        for v_node in vertices(v_network)
-            for s_node in vertices(s_network_dir)
-                if x_values[v_node, s_node] > 0.01
-                    #println("$v_node is placed on $s_node")
-                end
+    node_placement = []
+    for v_node in vertices(v_network)
+        for s_node in vertices(s_network_dir)
+            if x_values[v_node, s_node] > 0.01
+                push!(node_placement, s_node)
             end
-        end
-        #println("\nEdge routing:")
-        for v_edge in edges(v_network)
-            print("Routing of $v_edge : ")
-            for s_edge in edges(s_network_dir)
-                if y_values[v_edge, s_edge] > 0.01
-                    print(" $s_edge")
-                end
-            end
-            print("\n")
         end
     end
-    =#
+
+    edge_routing = Dict()
+    for v_edge in edges(v_network)
+        edges_of_routing = []
+        for s_edge in edges(s_network_dir)
+            if y_values[v_edge, s_edge] > 0.01
+                push!(edges_of_routing, s_edge)
+            end
+        end
+        path = order_path(s_network_dir, edges_of_routing, node_placement[src(v_edge)], node_placement[dst(v_edge)])
+        edge_routing[v_edge] = path
+    end
 
     result = Dict()
-    result["mapping"] = nothing
+    result["mapping"] = Mapping(v_network, s_network_dir, node_placement, edge_routing)
     result["sol_value"] = objective_value(model)
     result["lower_bound"] = objective_bound(model)
     result["gap"]  = relative_gap(model)

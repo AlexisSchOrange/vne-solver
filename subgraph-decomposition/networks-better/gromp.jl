@@ -18,20 +18,21 @@ includet("utils/checkers.jl")
 includet("end-heuristic/basic-ilp.jl")
 
 includet("../../heuristics/mepso.jl")
+includet("../../compact/compact_plus.jl")
 
-function solve_varying(instance)
+function solve_gromp(instance)
     
     
     # Budget : 60 seconds
-    time_init = 30
+    time_submappings = 30
     time_cg_heuristic = 30
 
+    v_network = instance.v_network
+    s_network = instance.s_network
 
     println("Starting...")
     time_beginning = time()
 
-    v_network = instance.v_network
-    s_network = instance.s_network
 
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
@@ -49,9 +50,6 @@ function solve_varying(instance)
     println("   and $(length(vn_decompo.v_edges_master)) cutting edges")
 
     
-    master_problem = set_up_master_problem(instance, vn_decompo)
-    model = master_problem.model
-    print("Master problem set... ")
 
 
 
@@ -62,28 +60,28 @@ function solve_varying(instance)
     time_0 = time()
 
     
-    mappings = init_varying_partition(instance, vn_decompo)
+    sub_mappings = find_submappings(instance, vn_decompo, solver="mepso")
     println("Mappings gotten! In just $(time() - time_0)")
+
+
+    master_problem = set_up_master_problem(instance, vn_decompo)
+    model = master_problem.model
+    print("Master problem set... ")
     for v_subgraph in vn_decompo.subgraphs
-        for mapping in mappings[v_subgraph]
+        for mapping in sub_mappings[v_subgraph]
             add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
         end
     end
-
-
-        
+    print("Submappings added...")
 
     
     # ======= GETTING A SOLUTION ======= #
     value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
-    #local_search(instance, vn_decompo, heur_sol)
-
 
 
     result = Dict()
-    result["algo"] = "SHEEESH"
-    result["time_solving"] = time() - time_beginning
-    result["value_cg_heuristic"] = value_cg_heuristic
+    result["solving_time"] = time() - time_beginning
+    result["mapping_cost"] = value_cg_heuristic
 
     return result
 end
@@ -92,7 +90,7 @@ end
 
 
 
-function init_varying_partition(instance, vn_decompo)
+function find_submappings(instance, vn_decompo; solver="mepso")
 
 
     s_network = instance.s_network
@@ -108,19 +106,38 @@ function init_varying_partition(instance, vn_decompo)
         mappings_per_subgraph[v_subgraph] = []
     end
 
-    while length(mappings) < 300
-        clusters = partition_graph_kahip_random_seed(s_network.graph, nb_cluster)
+    partitionning = partition_kahip(s_network.graph, nb_cluster, 0.15)
+    clusters = []
+    for i_subgraph in 1:nb_cluster
+        cluster = Vector{Int64}() 
+        for s_node in vertices(s_network)
+            if partitionning[s_node] == i_subgraph
+                push!(cluster, s_node)
+            end
+        end
+        print("Cluster $i_subgraph has $(length(cluster)) nodes ")
+        push!(clusters, cluster)
+    end
+    
+
+    while length(mappings) < 200    
         for (i_cluster, cluster) in enumerate(clusters) 
-            println("Cluster $i_cluster has $(length(cluster)) nodes ")
             induced_subg = my_induced_subgraph(s_network, cluster, "sub_sn_$i_cluster")
             s_subgraph = Subgraph(induced_subg, cluster)
 
             for v_subgraph in vn_decompo.subgraphs 
 
                 sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
-            
 
-                sub_mapping, cost = solve_mepso(sub_instance; nb_particle=30, nb_iter=50, time_max=0.25, print_things=false)
+                if solver=="mepso"
+                    sub_mapping, cost = solve_mepso(sub_instance; nb_particle=30, nb_iter=50, time_max=0.25, print_things=false)
+                elseif solver=="ilp"
+                    result_milp = solve_compact_ffplus(sub_instance; time_solver = 30, stay_silent=true, linear=false)
+                    sub_mapping = result_milp["mapping"]
+                else
+                    println("I don't know your solver, using mepso")
+                    sub_mapping, cost = solve_mepso(sub_instance; nb_particle=30, nb_iter=50, time_max=0.25, print_things=false)
+                end
 
                 if isnothing(sub_mapping)
                     continue
@@ -151,6 +168,7 @@ function init_varying_partition(instance, vn_decompo)
                 push!(mappings_per_subgraph[v_subgraph], real_sub_mapping)
 
             end
+
         end
 
     end
@@ -160,51 +178,4 @@ function init_varying_partition(instance, vn_decompo)
 end
 
 
-
-
-function partition_graph_kahip_random_seed(graph, nb_clusters)
-
-    
-    # 1 : Partitionner
-    inbalance = 0.1
-    partition = disturbed_kahip_seed(graph, nb_clusters, inbalance)
-    println("Partition of SN graph: $partition")
-    clusters = [Vector{Int64}() for i in 1:nb_clusters]
-    for s_node in vertices(graph)
-        push!(clusters[partition[s_node]], s_node)
-    end
-
-    # 2 : Corriger
-    for cluster in clusters
-        simple_subgraph, vmap = induced_subgraph(graph, cluster)
-        if !is_connected(simple_subgraph)
-            #print("Issue with unconnected subgraphs to correct...")
-            components = connected_components(simple_subgraph)
-            component_sorted = sort(components, by=x->length(x), rev=true)
-            for subcluster in component_sorted[2:length(component_sorted)]
-                nodes_original = [vmap[node] for node in subcluster]
-                subgraph_neighbors = zeros(Int, nb_clusters)
-                for node in nodes_original
-                    for neighbor in neighbors(graph, node)
-                        if neighbor ∉ cluster
-                            subgraph_neighbors[partition[neighbor]] += 1
-                        end
-                    end
-                end
-                most_connected_subgraph = sortperm(subgraph_neighbors, rev=true)
-                cluster_to_put_nodes_in = most_connected_subgraph[1]
-                append!(clusters[cluster_to_put_nodes_in], nodes_original)
-                for node in nodes_original
-                    partition[node] = cluster_to_put_nodes_in
-                end
-                filter!(e->e∉nodes_original, cluster)
-            end
-        end
-    end
-    
-    
-
-    return clusters
-
-end
 
