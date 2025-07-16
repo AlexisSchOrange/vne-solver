@@ -110,7 +110,7 @@ function find_submappings(instance, vn_decompo; solver="mepso")
     end
 
     # Get substrate subgraphs
-    clusters = partition_graph_kahip(s_network.graph, nb_substrate_subgraphs; inbalance = 0.15)
+    clusters = partition_graph(s_network.graph, nb_substrate_subgraphs; max_umbalance = 1.5)
     sn_subgraphs = []
     for (i_subgraph, cluster) in enumerate(clusters)
         print("Cluster $i_subgraph has $(length(cluster)) nodes ")
@@ -198,12 +198,8 @@ function find_submappings(instance, vn_decompo; solver="mepso")
             sub_mapping, cost = solve_mepso_custom(sub_instance, additional_costs; nb_particle=25, nb_iter=50, time_max=0.2, print_things=false)
         
             if isnothing(sub_mapping) # invalid submapping!
-                println("Submapping failed.")
-                return Dict(
-                    "mapping" => nothing,
-                    "mapping_cost" => 1e10,
-                    "solving_time" => time() - time_beginning
-                )     
+                print("A submapping failed. ")
+                continue
             end
         
             
