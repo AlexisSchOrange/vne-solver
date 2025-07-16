@@ -110,18 +110,10 @@ function find_submappings(instance, vn_decompo; solver="mepso")
     end
 
     # Get substrate subgraphs
-    partitionning = partition_kahip(s_network.graph, nb_substrate_subgraphs, 0.15)
-    clusters = []
+    clusters = partition_graph_kahip(s_network.graph, nb_substrate_subgraphs; inbalance = 0.15)
     sn_subgraphs = []
-    for i_subgraph in 1:nb_substrate_subgraphs
-        cluster = Vector{Int64}() 
-        for s_node in vertices(s_network)
-            if partitionning[s_node] == i_subgraph
-                push!(cluster, s_node)
-            end
-        end
+    for (i_subgraph, cluster) in enumerate(clusters)
         print("Cluster $i_subgraph has $(length(cluster)) nodes ")
-        push!(clusters, cluster)
         induced_subg = my_induced_subgraph(s_network, cluster, "sub_sn_$i_subgraph")
         push!(sn_subgraphs,Subgraph(induced_subg, cluster))
     end
@@ -285,6 +277,7 @@ function solve_mepso_custom(instance, additional_costs; nb_particle=25, nb_iter=
 
             nodes_of_path = []
             cost_of_routing_current_edge = 0
+
 
             # Get the shortest path
             if is_still_original_s_network

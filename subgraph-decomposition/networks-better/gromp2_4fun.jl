@@ -156,7 +156,7 @@ function find_submappings(instance, vn_decompo; solver="mepso")
 
         temporary_placement = zeros(Int, nv(v_network))
         overall_placement = zeros(Int, nv(v_network))
-        
+
         for v_subgraph in vn_subgraphs
             s_subgraph = assignment_virtual_substrate_subgraphs[v_subgraph]
             cluster = s_subgraph.nodes_of_main_graph
@@ -189,6 +189,13 @@ function find_submappings(instance, vn_decompo; solver="mepso")
                         for s_node in vertices(s_subgraph.graph)
                             original_s_node = s_subgraph.nodes_of_main_graph[s_node]
                             # We use the basic shortest paths for now, I think it would be quite long and useless to take into account the previous routing
+                            current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node] 
+                        end
+                    end
+                    if dst(v_edge) == original_v_node
+                        placement_of_dst_node = temporary_placement[src(v_edge)]
+                        for s_node in vertices(s_subgraph.graph)
+                            original_s_node = s_subgraph.nodes_of_main_graph[s_node]
                             current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node] 
                         end
                     end
