@@ -90,6 +90,7 @@ end
 
 
 
+
 function find_submappings(instance, vn_decompo; solver="mepso")
 
 
@@ -129,7 +130,7 @@ function find_submappings(instance, vn_decompo; solver="mepso")
 
         
 
-    while length(mappings) < 200
+    while length(mappings) < 300
 
         # Associate subvn to a random subsn
         used_sub_s_network = []
@@ -147,7 +148,12 @@ function find_submappings(instance, vn_decompo; solver="mepso")
         end
 
         temporary_placement = zeros(Int, nv(v_network))
-        
+        overall_placement = zeros(Int, nv(v_network))
+        overall_edge_routing = Dict()
+        has_failed = false
+
+        true_cost = 0
+
         for v_subgraph in vn_subgraphs
             s_subgraph = assignment_virtual_substrate_subgraphs[v_subgraph]
             cluster = s_subgraph.nodes_of_main_graph
@@ -199,11 +205,11 @@ function find_submappings(instance, vn_decompo; solver="mepso")
         
             if isnothing(sub_mapping) # invalid submapping!
                 print("A submapping failed. ")
+                has_failed = true
                 continue
             end
         
             
-            real_cost = 0
 
             node_placement = []
             for v_node in vertices(v_subgraph.graph)
@@ -212,8 +218,9 @@ function find_submappings(instance, vn_decompo; solver="mepso")
 
                 original_v_node = v_subgraph.nodes_of_main_graph[v_node]
                 temporary_placement[original_v_node] = original_s_node
-    
-                real_cost += s_network[original_s_node][:cost]
+                overall_placement[original_v_node] = original_s_node
+
+                true_cost += s_network[original_s_node][:cost]
 
             end
 
@@ -224,9 +231,12 @@ function find_submappings(instance, vn_decompo; solver="mepso")
                 for s_edge in sub_mapping.edge_routing[v_edge].edges
                     real_s_edge = get_edge(s_network_dir, s_subgraph.nodes_of_main_graph[src(s_edge)], s_subgraph.nodes_of_main_graph[dst(s_edge)])
                     push!(used_edges, real_s_edge)
-                    real_cost += s_network_dir[src(real_s_edge), dst(real_s_edge)][:cost]
+                    true_cost += s_network_dir[src(real_s_edge), dst(real_s_edge)][:cost]
                 end
                 edge_routing[v_edge] = order_path(s_network_dir, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 
+
+                original_v_edge = get_edge(v_network, v_subgraph.nodes_of_main_graph[src(v_edge)],v_subgraph.nodes_of_main_graph[dst(v_edge)] )
+                overall_edge_routing[original_v_edge] = edge_routing[v_edge]
             end
 
 
@@ -240,12 +250,20 @@ function find_submappings(instance, vn_decompo; solver="mepso")
 
         println("We have $(length(mappings)) mappings!")
 
+        if !has_failed
+
+            # --- cutting edge routing time!
+            edge_routing, additional_routing_cost = route_cut_edges(instance, vn_decompo, overall_placement, overall_edge_routing)
+
+            println("Well, the cost of the solution for this round was $(additional_routing_cost+true_cost)")
+
+        end
+
     end
 
     println("We have $(length(mappings)) mappings!")
     return mappings_per_subgraph    
 end
-
 
 
 
@@ -273,7 +291,6 @@ function solve_mepso_custom(instance, additional_costs; nb_particle=25, nb_iter=
 
             nodes_of_path = []
             cost_of_routing_current_edge = 0
-
 
             # Get the shortest path
             if is_still_original_s_network
