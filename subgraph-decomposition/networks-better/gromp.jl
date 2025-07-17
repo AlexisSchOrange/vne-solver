@@ -173,7 +173,7 @@ function find_submappings(instance, vn_decompo; solver="mepso", nb_columns=200)
             for v_node in vertices(v_subgraph.graph)
                 current_addition_costs = [0 for s_node in vertices(s_subgraph.graph)]
                 original_v_node = v_subgraph.nodes_of_main_graph[v_node]
-    
+                #=
                 for v_edge in vn_decompo.v_edges_master
                     if src(v_edge) == original_v_node
                         placement_of_dst_node = temporary_placement[dst(v_edge)]
@@ -190,6 +190,7 @@ function find_submappings(instance, vn_decompo; solver="mepso", nb_columns=200)
                         end
                     end
                 end
+                =#
     
                 push!(additional_costs, current_addition_costs)
             end
