@@ -14,28 +14,24 @@ struct PricerSubSubstrate
 end
 
 function Base.show(io::IO, pricer::PricerSubSubstrate)
-    println(io, "Some pricer for subvn $(pricer.vn_subgraph.graph[][:name]) on subsn $(pricer.sub_instance.s_network[][:name])")
+    println(io, "Pricer for subvn $(pricer.vn_subgraph.graph[][:name]) on subsn $(pricer.sub_instance.s_network[][:name])")
 end
 
 
 
-function set_up_pricer_sn_decompo(instance, vn_subgraph, clusters)
+function set_up_pricers_sn_partitionning(instance, vn_subgraphs, sn_subgraphs)
 
-    s_network = instance.s_network
-    pricers = []
-    for (i_cluster, cluster) in enumerate(clusters)
-        sub_s_network = my_induced_subgraph(s_network, cluster, "sub_sn_$i_cluster")
-
-        sn_subgraph = Subgraph(sub_s_network, cluster)
-
-        sub_instance = Instance(vn_subgraph.graph, sub_s_network)
-
-
-        model = Model(CPLEX.Optimizer)
-
-        set_up_model_pricer_subsn(model, sub_instance, instance, vn_subgraph, sn_subgraph)
-        
-        push!(pricers,  PricerSubSubstrate(vn_subgraph, sn_subgraph, sub_instance, instance, model))
+    pricers = Dict()
+    for v_subgraph in vn_subgraphs
+        pricers_v_subgraph = Dict()
+        for s_subgraph in sn_subgraphs
+            sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
+            model = Model(CPLEX.Optimizer)
+            set_up_model_pricer_subsn(model, sub_instance, instance, v_subgraph, s_subgraph)
+            pricer =  PricerSubSubstrate(v_subgraph, s_subgraph, sub_instance, instance, model)
+            pricers_v_subgraph[s_subgraph] = pricer
+        end
+        pricers[v_subgraph] = pricers_v_subgraph
     end
 
     return pricers
@@ -43,190 +39,6 @@ end
 
 
 
-# computing the sn subgraphs, using a partition of the sn network again..
-function get_sn_decompo(s_network, nb_clusters, nb_nodes_per_clusters)
-    
-    #1) Partitionning. Since connectivity is enforced, sometime, it will not the best and quite unbalanced,
-    clusters = partition_graph(s_network.graph, nb_clusters, max_umbalance=1.5)
-
-
-    # 2) adding nodes. For now, any adjacent nodes will do.
-    i_cluster = 1
-    subgraphs = []
-
-    for cluster in clusters
-        all_neighbors = Dict()
-        for s_node in cluster
-            for neigh in neighbors(s_network, s_node)
-                if neigh ∉ cluster
-                    if neigh ∉ keys(all_neighbors)
-                        all_neighbors[neigh] = 1
-                    else
-                        all_neighbors[neigh] += 1
-                    end
-                end
-            end
-        end
-
-        added = []
-
-        nb_nodes_with_capacity=0
-        for s_node in cluster
-            if s_network[s_node][:cap] >= 1
-                nb_nodes_with_capacity+=1
-            end
-        end
-
-        while nb_nodes_with_capacity < nb_nodes_per_clusters
-
-            # ranking the neighbors
-            ranking = sort(collect(keys(all_neighbors)), by = x->all_neighbors[x], rev=true)
-            # add the most connected neighbor
-            new_s_node = ranking[1]
-            if s_network[new_s_node][:cap] >= 1
-                nb_nodes_with_capacity+=1
-            end
-            push!(cluster, new_s_node)
-            push!(added, new_s_node)
-            delete!(all_neighbors, new_s_node)
-
-            for neigh in neighbors(s_network, new_s_node)
-                if neigh ∉ cluster
-                    if neigh ∉ keys(all_neighbors)
-                        all_neighbors[neigh] = 1
-                    else
-                        all_neighbors[neigh] += 1
-                    end
-                end
-            end
-        end
-
-        #println("Well I have $(length(cluster)) whereas I need $(nb_nodes_per_clusters)")
-        sub_s_network = my_induced_subgraph(s_network, cluster, "sub_sn_$i_cluster")
-        i_cluster += 1
-        push!(subgraphs, sub_s_network)
-
-        #write_added_nodes(s_network.graph, cluster, added, sub_s_network[][:name])
-    end
-
-
-
-    return clusters
-
-end
-
-
-# computing the sn decompo. It depends on the subvirtual network...
-function get_sn_decompo_kahip(s_network, nb_clusters, nb_nodes_per_clusters)
-
-
-    # 1 : Partitionning, with metis now...
-    inbalance = 0.10
-    partition = partition_kahip(s_network.graph, nb_clusters, inbalance)
-    clusters = [Vector{Int64}() for i in 1:nb_clusters]
-    for s_node in vertices(s_network)
-        push!(clusters[partition[s_node]], s_node)
-    end
-
-    # 2 : Corriger
-
-    # 2a) correction by removing unconnected sets
-    for cluster in clusters
-        simple_subgraph, vmap = induced_subgraph(s_network.graph, cluster)
-        if !is_connected(simple_subgraph)
-            println("One of the subgraph is not connected ! :(")
-            #println("At the beginning the cluster is : $cluster")
-            components = connected_components(simple_subgraph)
-            component_sorted = sort(components, by=x->length(x), rev=true)
-            new_cluster = [vmap[i] for i in component_sorted[1]]
-            for subcluster in component_sorted[2:length(component_sorted)]
-                #Let's add all those nodes to a (most) connected subgraph
-                nodes_original = [vmap[node] for node in subcluster]
-                subgraph_neighbors = zeros(Int, nb_clusters)
-                for node in nodes_original
-                    for neighbor in neighbors(s_network, node)
-                        if neighbor ∉ cluster
-                            subgraph_neighbors[partition[neighbor]] += 1
-                        end
-                    end
-                end
-                most_connected_subgraph = sortperm(subgraph_neighbors, rev=true)
-                append!(clusters[most_connected_subgraph[1]], nodes_original)
-                #println("Well let's add $nodes_original to cluster $(clusters[most_connected_subgraph[1]])")
-                filter!(e->e∉nodes_original, cluster)
-            end
-        end
-    end
-
-    # 2b) adding nodes. For now, any adjacent nodes will do.
-
-    i_cluster = 1
-    subgraphs = []
-
-
-    for cluster in clusters
-
-        all_neighbors = Dict()
-        for s_node in cluster
-            for neigh in neighbors(s_network, s_node)
-                if neigh ∉ cluster
-                    if neigh ∉ keys(all_neighbors)
-                        all_neighbors[neigh] = 1
-                    else
-                        all_neighbors[neigh] += 1
-                    end
-                end
-            end
-        end
-
-        added = []
-
-        nb_nodes_with_capacity=0
-        for s_node in cluster
-            if s_network[s_node][:cap] >= 1
-                nb_nodes_with_capacity+=1
-            end
-        end
-
-        while nb_nodes_with_capacity < nb_nodes_per_clusters
-
-            # ranking the neighbors
-            ranking = sort(collect(keys(all_neighbors)), by = x->all_neighbors[x], rev=true)
-            # add the most connected neighbor
-            new_s_node = ranking[1]
-            if s_network[new_s_node][:cap] >= 1
-                nb_nodes_with_capacity+=1
-            end
-            push!(cluster, new_s_node)
-            push!(added, new_s_node)
-            delete!(all_neighbors, new_s_node)
-
-            for neigh in neighbors(s_network, new_s_node)
-                if neigh ∉ cluster
-                    if neigh ∉ keys(all_neighbors)
-                        all_neighbors[neigh] = 1
-                    else
-                        all_neighbors[neigh] += 1
-                    end
-                end
-            end
-        end
-
-        #println("Well I have $(length(cluster)) whereas I need $(nb_nodes_per_clusters)")
-        #sub_s_network = my_induced_subgraph(s_network, cluster, "sub_sn_$i_cluster")
-        i_cluster += 1
-        #push!(subgraphs, sub_s_network)
-
-        #write_added_nodes(s_network.graph, cluster, added, sub_s_network[][:name])
-    end
-
-    println("Length of each substrate subgraph:")
-    for cluster in clusters
-        print(" $(length(cluster))")
-    end
-    return clusters
-
-end
 
 
 function set_up_model_pricer_subsn(model, sub_instance, original_instance, vn_subgraph, sn_subgraph)
@@ -346,7 +158,7 @@ end
 
 
 
-function update_pricer_sn_decompo(vn_decompo, pricer, dual_costs)
+function update_pricer_sn_decompo_penalty(vn_decompo, pricer, dual_costs, additional_costs)
 
     model = pricer.model
 
@@ -358,12 +170,12 @@ function update_pricer_sn_decompo(vn_decompo, pricer, dual_costs)
 
     ### Objective
     placement_cost = @expression(model, 
-        sum( ( sub_s_network_dir[s_node][:cost] - dual_costs.capacity_s_node[sn_subgraph.nodes_of_main_graph[s_node]] )  * model[:x][v_node, s_node] 
+        sum( ( sub_s_network_dir[s_node][:cost] - dual_costs.capacity_s_node[sn_subgraph.nodes_of_main_graph[s_node]] + additional_costs[v_node][s_node])  * model[:x][v_node, s_node] 
             for v_node in vertices(v_subgraph.graph) for s_node in vertices(sub_s_network_dir) ))
 
     routing_cost = @expression(model, sum( 
         ( sub_s_network[src(s_edge), dst(s_edge)][:cost] - dual_costs.capacity_s_edge[get_edge(original_s_network, sn_subgraph.nodes_of_main_graph[src(s_edge)], sn_subgraph.nodes_of_main_graph[dst(s_edge)])] ) 
-        * (model[:y][v_edge, get_edge(sub_s_network_dir, src(s_edge), dst(s_edge))] + model[:y][v_edge, get_edge(sub_s_network_dir, dst(s_edge), src(s_edge))])
+        * v_subgraph.graph[src(v_edge), dst(v_edge)][:dem] * (model[:y][v_edge, get_edge(sub_s_network_dir, src(s_edge), dst(s_edge))] + model[:y][v_edge, get_edge(sub_s_network_dir, dst(s_edge), src(s_edge))])
                 for v_edge in edges(v_subgraph.graph) for s_edge in edges(sub_s_network) ))
 
 
@@ -420,7 +232,7 @@ end
 
 
 
-function solve_pricers_sn_decompo(pricer; time_limit = 1000)
+function solve_pricers_sn_decompo_penalty(pricer, additional_costs; time_limit = 1000)
 
     original_s_network_dir = pricer.original_instance.s_network_dir
     sn_subgraph = pricer.sn_subgraph
@@ -437,6 +249,7 @@ function solve_pricers_sn_decompo(pricer; time_limit = 1000)
         # Get the solution
         x_values = value.(model[:x])
         y_values = value.(model[:y])
+        penalty_routing = 0
         true_cost = 0.
 
         node_placement = []
@@ -446,6 +259,7 @@ function solve_pricers_sn_decompo(pricer; time_limit = 1000)
                     real_s_node = sn_subgraph.nodes_of_main_graph[s_node]
                     append!(node_placement, real_s_node)
                     true_cost += original_s_network_dir[real_s_node][:cost]
+                    penalty_routing+= additional_costs[v_node][s_node]
                 end
             end
         end
@@ -467,14 +281,25 @@ function solve_pricers_sn_decompo(pricer; time_limit = 1000)
             edge_routing[v_edge] = order_path(original_s_network_dir, used_edges, node_placement[src(v_edge)], node_placement[dst(v_edge)]) 
         end
         mapping = Mapping(v_network, original_s_network_dir, node_placement, edge_routing)
-        reduced_cost = objective_value(model)
-        return mapping, true_cost, reduced_cost
+        reduced_cost = objective_value(model) - penalty_routing
+        return Dict(
+            "mapping"=>mapping, 
+            "true_cost"=>true_cost, 
+            "reduced_cost"=>reduced_cost
+        )
     else
-        return nothing, 9999999, 999999
+        return Dict(
+            "mapping"=>nothing, 
+            "true_cost"=>10e9, 
+            "reduced_cost"=>10e9
+        )
     end
 
 
 end
+
+
+
 
 
 

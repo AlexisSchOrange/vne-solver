@@ -17,8 +17,8 @@ function basic_heuristic(instance, vn_decompo, master_problem, time_max)
     model = Model(CPLEX.Optimizer)
     set_up_problem(instance, vn_decompo, model)
     set_time_limit_sec(model, time_max)
-    
-    
+    set_optimizer_attribute(model, "CPXPARAM_Preprocessing_RepeatPresolve", 0)
+
     lambdas = Dict()
     for subgraph in vn_decompo.subgraphs
         for column in master_problem.columns[subgraph]

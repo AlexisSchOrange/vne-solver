@@ -70,6 +70,17 @@ end
 
 
 
+function print_stuff_decompo(vn_decompo, instance)
+    v_network = instance.v_network
+    println("Decomposition set: ")
+        println("For $v_network, there is $(length(vn_decompo.subgraphs)) subgraphs:")
+
+    for subgraph in vn_decompo.subgraphs
+        println("       $(subgraph.graph[][:name]) with $(nv(subgraph.graph)) nodes and $(ne(subgraph.graph)) edges")
+    end
+    println("   and $(length(vn_decompo.v_edges_master)) cutting edges")
+
+end
 
 ############============== MASTER PROBLEM 
 
@@ -292,31 +303,23 @@ function get_duals(instance, vn_decompo, master_problem)
     model = master_problem.model
 
     convexity= Dict()
-    #println("Convexity:")
     for subgraph in vn_decompo.subgraphs
         convexity[subgraph] = dual(model[:mapping_selec][subgraph])
-        #println(dual(model[:mapping_selec][subgraph]))
     end
 
     flow_conservation= Dict()
-    #println("Flow conservation:")
     for v_edge in vn_decompo.v_edges_master
         flow_conservation[v_edge] = Dict()
-        #println("   $v_edge")
         for s_node in vertices(instance.s_network)
             flow_conservation[v_edge][s_node] = dual(model[:flow_conservation][v_edge, s_node])
-            #println("       $s_node: $(dual(model[:flow_conservation][v_edge, s_node]))")
         end
     end
 
     departure = Dict()
-    #println("Departure:")
     for v_edge in vn_decompo.v_edges_master
-        #println("   $v_edge")
         departure[v_edge] = Dict()
         for s_node in vertices(s_network)
             departure[v_edge][s_node] = dual(model[:departure][v_edge, s_node])
-            #println("       $s_node: $(dual(model[:departure][v_edge, s_node]))")
         end
     end
 
@@ -377,6 +380,26 @@ function get_empty_duals(instance, vn_decompo)
 end
 
 
+
+function print_dual(instance, vn_decompo, dual)
+    println("Printing duals values...")
+
+    println("Convexity:")
+    for v_subgraph in vn_decompo.subgraphs
+        print("$(dual.convexity[v_subgraph]) ")
+    end
+
+    println("Nodes capacities:")
+    for s_node in vertices(instance.s_network)
+        println("Node $s_node: $(dual.capacity_s_node[s_node])")
+    end
+
+    println("Edge capacities:")
+    for s_edge in edges(instance.s_network)
+        println("Edge $s_edge: $(dual.capacity_s_edge[s_edge])")
+    end
+
+end
 
 ### =========== INITIALIZATION of CG: dummy cols
 function add_dummy_cols(vn_decompo, model)

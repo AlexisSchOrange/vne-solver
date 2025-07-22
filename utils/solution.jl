@@ -46,7 +46,7 @@ function get_cost_routing(mapping)
     edge_routing_cost = 0
     for v_edge in edges(v_network)
         path = mapping.edge_routing[v_edge]
-        edge_routing_cost += path.cost * v_network[src(v_edge), dst(v_edge)][:dem]
+        edge_routing_cost += path.cost
     end
     return edge_routing_cost
 end

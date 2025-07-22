@@ -9,7 +9,7 @@ using Statistics
 
 
 
-function partition_graph(graph, nb_clusters; max_umbalance=1.15)
+function partition_graph(graph, nb_clusters; max_umbalance=1.25)
 
     # FIRST, do it with Kahip... 
     clusters = partition_graph_kahip(graph, nb_clusters, inbalance=max_umbalance-1)
@@ -18,6 +18,7 @@ function partition_graph(graph, nb_clusters; max_umbalance=1.15)
     current_imb = maximum([length(cluster) / moyenne for cluster in clusters])
 
     if current_imb < max_umbalance
+        println("Best partition found has imbalance of $current_imb.")
         return clusters
     end
 
@@ -25,12 +26,13 @@ function partition_graph(graph, nb_clusters; max_umbalance=1.15)
     
     # If very poorly balanced, do it with METIS !
     # Since connectivity is enforced, sometime, it will not the best
-    best_clusters = nothing
-    best_imb = 10000
-    imb = [1.01, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3]
-    #imb = [1.05]
-    for imbalance in imb
-        partition = partition_metis(graph, nb_clusters, imbalance)
+    
+    
+    keep_on=true
+    clusters = []
+    i_iter = 0
+    while keep_on
+        partition = partition_metis(graph, nb_clusters, max_umbalance)
 
         clusters = [Vector{Int64}() for i in 1:nb_clusters]
         for s_node in vertices(graph)
@@ -39,21 +41,20 @@ function partition_graph(graph, nb_clusters; max_umbalance=1.15)
 
         moyenne = mean([length(cluster) for cluster in clusters])
         current_imb = maximum([length(cluster) / moyenne for cluster in clusters])
-        if current_imb < 1.10
-            best_clusters = clusters
-            best_imb = current_imb
-            break
+
+        if current_imb < max_umbalance
+            println("Best partition found has imbalance of $current_imb.")
+            return clusters
         end
-        if current_imb < best_imb
-            best_imb = current_imb
-            best_clusters = clusters
+
+        max_umbalance = (1+max_umbalance)/2
+
+        i_iter += 1
+        if i_iter > 5
+            println("Well, couldn't find a good, balanced mapping... Current one: $current_imb")
+            return clusters
         end
     end
-    
-    #println("Best partition found has imbalance of $best_imb.")
-
-    return best_clusters
-
 
 end
 
