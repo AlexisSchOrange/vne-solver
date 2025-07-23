@@ -16,16 +16,14 @@ includet("utils/checkers.jl")
 
 
 # init
-includet("init/init-paving-simpler.jl")
+includet("init/init-paving-routing.jl")
+includet("init/init-paving-simple.jl")
 
 # pricers
-includet("pricers/pricer-subsn.jl")
-includet("pricers/pricer-exact.jl")
-includet("pricers/mepso-pricer.jl")
-includet("pricers/mepso-pricer-subsn.jl")
-
-
-
+includet("pricers/milp/pricer-subsn.jl")
+includet("pricers/milp/pricer-exact.jl")
+includet("pricers/mepso/mepso-pricer-subsn.jl")
+includet("pricers/local-search/ls-pricer-subsn.jl")
 
 
 function crazy_bound(instance)
@@ -67,7 +65,7 @@ function crazy_bound(instance)
     print("Master problem set... ")
 
     # ====== STEP 1 : INIT ======= #
-    nb_columns_to_add_init = 200
+    nb_columns_to_add_init = 250
 
     println("Paving time...")
     time_0 = time()
@@ -75,6 +73,8 @@ function crazy_bound(instance)
     # Get substrate subgraphs - 1
     size_max_v_subgraph = maximum(nv(v_subgraph.graph) for v_subgraph in vn_decompo.subgraphs)
     nb_substrate_subgraphs = floor(Int, nv(s_network) / (size_max_v_subgraph*1.5))
+    nb_nodes_subgraph = 20
+    #clusters = get_sn_decompo(s_network, nb_substrate_subgraphs, nb_nodes_subgraph)
 
     clusters = partition_graph(s_network.graph, nb_substrate_subgraphs; max_umbalance = 1.3)
     sn_subgraphs = []
@@ -84,7 +84,9 @@ function crazy_bound(instance)
         push!(sn_subgraphs,Subgraph(induced_subg, cluster))
     end
 
-    sub_mappings = find_submappings(instance, vn_decompo, sn_subgraphs, solver="mepso", nb_columns=nb_columns_to_add_init)
+    #sub_mappings = find_submappings_routing(instance, vn_decompo, sn_subgraphs, solver="mepso", nb_columns=nb_columns_to_add_init)
+    sub_mappings = find_submappings_simple(instance, vn_decompo, sn_subgraphs, solver="mepso", nb_columns=nb_columns_to_add_init)
+
     println("Mappings gotten! In just $(time() - time_0)")
     for v_subgraph in vn_decompo.subgraphs
         for mapping in sub_mappings[v_subgraph]
@@ -106,15 +108,21 @@ function crazy_bound(instance)
         nb_iter, cg_value, nb_columns, time_overall
     )
 
+    return
 
-    # ====== STEP 2a) HEURISTIC PAVING PRICING WITH PSO ====== #
+    #= ====== STEP 2a) HEURISTIC PAVING PRICING WITH PSO ====== #
 
     # Get substrate subgraphs 
     println("TIME TO PAVE WITH MY MEPSO PRICER")
     size_max_v_subgraph = maximum(nv(v_subgraph.graph) for v_subgraph in vn_decompo.subgraphs)
     nb_substrate_subgraphs = floor(Int, nv(s_network) / (size_max_v_subgraph*2))
 
-    clusters = partition_graph(s_network.graph, nb_substrate_subgraphs; max_umbalance = 1.3)
+    nb_substrate_subgraph = floor(Int, nv(s_network) / 15)  
+    nb_nodes_subgraph = 30
+    clusters = get_sn_decompo(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
+
+
+    #clusters = partition_graph(s_network.graph, nb_substrate_subgraphs; max_umbalance = 1.3)
     sn_subgraphs = []
     for (i_subgraph, cluster) in enumerate(clusters)
         print("Cluster $i_subgraph has $(length(cluster)) nodes ")
@@ -152,9 +160,11 @@ function crazy_bound(instance)
             sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
 
             sub_mapping, reduced_cost = solve_pricer_mepso_sub_sn(v_subgraph, s_subgraph, dual_costs, vn_decompo, sub_instance, instance, print_things=false)
+            #println("Found a columns with reduced cost $reduced_cost with mepso")
 
-            #println("Found a columns with reduced cost $reduced_cost")
+            #println("And one with $(result_ls["reduced_cost"]) with local search!")
 
+            
             if !isnothing(sub_mapping) && reduced_cost < -0.01
                 #println("Adding it!")
                 #println("Mapping: $sub_mapping")
@@ -167,6 +177,22 @@ function crazy_bound(instance)
                 nb_columns += 1
                 nb_columns_pricing_mepso += 1
             end
+        
+            #= 
+            result_ls = solve_local_search_pricer_subsn(v_subgraph, s_subgraph, dual_costs, vn_decompo, instance)
+
+            sub_mappings = result_ls["mappings"]
+            reduced_costs = result_ls["reduced_costs"]
+            real_costs = result_ls["mapping_costs"]
+            #println("Reduced costs: $reduced_costs")
+            for i_mapping in 1:length(sub_mappings)
+                if !isnothing(sub_mappings[i_mapping]) && reduced_costs[i_mapping] < -0.01
+                    add_column(master_problem, instance, v_subgraph, sub_mappings[i_mapping], real_costs[i_mapping] )
+                    nb_columns += 1
+                    nb_columns_pricing_mepso += 1
+                end
+            end
+            =#
         end
 
 
@@ -183,6 +209,7 @@ function crazy_bound(instance)
     end
 
 
+    =#
 
     #= ====== STEP 2 : HEURISTICS PRICING ======= # ITS JUST NOT WORKING BRAH
     nb_columns_to_put_mepso = 200
@@ -302,8 +329,8 @@ function crazy_bound(instance)
         # ---- master problem part
 
         optimize!(model)
-        time_master +=  solve_time(model)
-
+        time_master +=  solve_time(model)       
+        println("Time last iter master : $(solve_time(model))")
         cg_value = objective_value(model)
 
         time_overall = time()-time_beginning

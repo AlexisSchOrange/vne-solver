@@ -17,6 +17,15 @@ end
 
 
 
+function print_stuff_subgraphs(original_graph, subgraphs)
+
+    println("For $original_graph, there is $(length(subgraphs)) subgraphs:")
+    for subgraph in subgraphs
+        println("       $(subgraph.graph[][:name]) with $(nv(subgraph.graph)) nodes and $(ne(subgraph.graph)) edges")
+    end
+    
+end
+
 
 function set_up_decompo(instance, node_partitionning)
 
@@ -70,17 +79,6 @@ end
 
 
 
-function print_stuff_decompo(vn_decompo, instance)
-    v_network = instance.v_network
-    println("Decomposition set: ")
-        println("For $v_network, there is $(length(vn_decompo.subgraphs)) subgraphs:")
-
-    for subgraph in vn_decompo.subgraphs
-        println("       $(subgraph.graph[][:name]) with $(nv(subgraph.graph)) nodes and $(ne(subgraph.graph)) edges")
-    end
-    println("   and $(length(vn_decompo.v_edges_master)) cutting edges")
-
-end
 
 ############============== MASTER PROBLEM 
 

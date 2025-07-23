@@ -1,11 +1,11 @@
 
 using Graphs, MetaGraphsNext
-includet("../utils/import_utils.jl")
 
 
 
 
-function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_things=true)
+function solve_pricer_mepso_sub_sn(v_subgraph, s_subgraph, dual_costs, vn_decompo, sub_instance, original_instance; nb_particle=25, nb_iter=50, time_max=0.1, print_things=true)
+
 
 
 
@@ -60,7 +60,7 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
 
                 if capacities_edges_copy[(current_src), (current_dst)] == 0
                     if is_still_original_s_network
-                        s_network_copy_dir_copy_ofgraph = deepcopy(instance.s_network_dir.graph)
+                        s_network_copy_dir_copy_ofgraph = deepcopy(s_network_dir.graph)
                         is_still_original_s_network = false
                     end
                     rem_edge!(s_network_copy_dir_copy_ofgraph, current_src, current_dst)
@@ -72,12 +72,15 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
             # Since it takes some time to retrieve the edges, due to poor design choices, I only do it when necessary.
             if get_routing
                 edges_of_path = []
+                real_cost_of_path = 0
                 for i_node in 1:length(nodes_of_path)-1
                     current_src = nodes_of_path[i_node]
                     current_dst = nodes_of_path[i_node+1]
-                    push!(edges_of_path, get_edge(s_network_dir, current_src, current_dst))
+                    edge = get_edge(s_network_dir, current_src, current_dst)
+                    push!(edges_of_path, edge)
+                    real_cost_of_path += s_network_dir[src(edge), dst(edge)][:cost]
                 end
-                path = Path(s_src, s_dst, edges_of_path, cost_of_routing_current_edge)
+                path = Path(s_src, s_dst, edges_of_path, real_cost_of_path)
                 edge_routing[v_edge] = path
             end
         end
@@ -110,7 +113,6 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
 
             # Take a node of the list
             v_node = popfirst!(next_v_nodes)
-        
             # Get neighbors already placed
             placement_neighbors = []
             for v_neighbor in neighbors(v_network, v_node)
@@ -155,7 +157,7 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
 
         placement_cost = 0
         for v_node in vertices(v_network)
-            placement_cost += node_costs[placement[v_node]]
+            placement_cost += (node_costs[placement[v_node]] + additional_costs_duals[v_node][placement[v_node]])
         end
 
         routing, routing_cost = shortest_path_routing(placement)
@@ -212,13 +214,13 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
         placement = zeros(Int, nv(v_network))
 
         already_placed_v_nodes = []
-        for v_node in 1:nv(instance.v_network)
+        for v_node in 1:nv(v_network)
             if velocity[v_node] == 1
                 placement[v_node] = position[v_node]
                 push!(already_placed_v_nodes, v_node)
             end
         end
-
+        #println("Damn! Placement so far: $(placement)")
         # Extreme case where no nodes are kept: we start from a random node again
         if isempty(already_placed_v_nodes)
             keep_on = true
@@ -290,7 +292,7 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
 
         placement_cost = 0
         for v_node in vertices(v_network)
-            placement_cost += node_costs[placement[v_node]]
+            placement_cost += (node_costs[placement[v_node]] + additional_costs_duals[v_node][placement[v_node]])
         end
 
         return placement, placement_cost
@@ -301,9 +303,12 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
     time_sp = 0
     time_pos = 0
 
-    v_network = instance.v_network
-    s_network = instance.s_network
-    s_network_dir = instance.s_network_dir
+    v_network = sub_instance.v_network
+    s_network = sub_instance.s_network
+    s_network_dir = sub_instance.s_network_dir
+
+    original_s_network = original_instance.s_network
+    original_s_network_dir = original_instance.s_network_dir
 
 
     #---- Make sure there are enough capacited nodes
@@ -318,10 +323,10 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
     end
 
 
-
     #---- usefull things for the resolution
     node_capacities = [get_attribute_node(s_network, s_node, :cap) for s_node in vertices(s_network)]
-    node_costs = [get_attribute_node(s_network, s_node, :cost) for s_node in vertices(s_network)]
+    node_costs = [(get_attribute_node(s_network, s_node, :cost) 
+                        - dual_costs.capacity_s_node[s_subgraph.nodes_of_main_graph[s_node]]) for s_node in vertices(s_network)]
     capacities_edges = Dict{Tuple{Int, Int}, Int}()
     for s_edge in edges(s_network)
         cap = s_network[src(s_edge), dst(s_edge)][:cap]
@@ -335,11 +340,45 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
 
 
     # shortest path things
-    distmx = zeros(Int, nv(s_network), nv(s_network))
-    for s_edge in edges(s_network_dir)
-        distmx[src(s_edge), dst(s_edge)] = get_attribute_edge(s_network_dir, s_edge, :cost)
+    distmx = zeros(Float32, nv(s_network), nv(s_network))
+    for s_edge in edges(s_network)
+        original_src = s_subgraph.nodes_of_main_graph[src(s_edge)]
+        original_dst = s_subgraph.nodes_of_main_graph[dst(s_edge)]
+        original_edge = get_edge(original_s_network, original_src, original_dst)
+        distmx[src(s_edge), dst(s_edge)] = get_attribute_edge(s_network, s_edge, :cost) - dual_costs.capacity_s_edge[original_edge]
+        distmx[dst(s_edge), src(s_edge)] = get_attribute_edge(s_network, s_edge, :cost) - dual_costs.capacity_s_edge[original_edge]
     end
     shortest_paths = floyd_warshall_shortest_paths(s_network_dir, distmx)
+
+    
+
+
+    # penalty = dual costs for flow conservation and flow departure constraints
+    additional_costs_duals = []
+    for v_node in vertices(v_subgraph.graph)
+        current_additional_costs = zeros(nv(s_network))
+        original_v_node = v_subgraph.nodes_of_main_graph[v_node]
+        for cut_edge in vn_decompo.v_edges_master
+
+            if original_v_node == src(cut_edge)
+                for s_node in vertices(s_network)
+                    original_node = s_subgraph.nodes_of_main_graph[s_node]
+                    current_additional_costs[s_node] -= dual_costs.flow_conservation[cut_edge][original_node]
+                    current_additional_costs[s_node] -= dual_costs.departure[cut_edge][original_node]
+                end
+            end
+            
+            if original_v_node == dst(cut_edge)
+                for s_node in vertices(s_network)
+                    original_node = s_subgraph.nodes_of_main_graph[s_node]
+                    current_additional_costs[s_node] += dual_costs.flow_conservation[cut_edge][original_node]
+                end
+            end
+
+        end
+        push!(additional_costs_duals, current_additional_costs)
+    end
+
 
     # ------ things for the PSO algorithm
     position = []
@@ -429,17 +468,31 @@ function solve_mepso(instance; nb_particle=25, nb_iter=50, time_max=5, print_thi
     #println("Final best solution: $global_best")
     print_things && println("PSO finished at iteration $nb_iter, finished in $(time()-time_start)s, best solution: $global_best_cost")
 
-    if global_best_cost > 10e8
+    if global_best_cost > 10e6
         return nothing, 10e9
     end
 
     routing, routing_cost= shortest_path_routing(global_best, true)
-    final_mapping = Mapping(v_network, s_network, global_best, routing)
 
-    return final_mapping, global_best_cost
+
+    # GET ORIGINAL MAPPING
+    real_placement = [] 
+    for v_node in vertices(v_network)
+        push!(real_placement, s_subgraph.nodes_of_main_graph[global_best[v_node]])
+    end
+    real_routing = Dict()
+    for v_edge in edges(v_network)
+        used_edges = []
+        for s_edge in routing[v_edge].edges
+            real_s_edge = get_edge(original_s_network_dir, s_subgraph.nodes_of_main_graph[src(s_edge)], s_subgraph.nodes_of_main_graph[dst(s_edge)])
+            push!(used_edges, real_s_edge)
+        end
+        real_routing[v_edge] = order_path(original_s_network_dir, used_edges, real_placement[src(v_edge)], real_placement[dst(v_edge)]) 
+    end
+
+    final_real_mapping = Mapping(v_network, original_s_network_dir, real_placement, real_routing)
+
+    reduced_cost = - dual_costs.convexity[v_subgraph] + global_best_cost
+    return final_real_mapping, reduced_cost
+
 end
-
-
-
-
-

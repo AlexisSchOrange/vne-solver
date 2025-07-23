@@ -5,7 +5,7 @@ includet("../heuristics/ilp-routing-cost.jl")
 
 
 
-function find_submappings(instance, vn_decompo, sn_subgraphs; solver="mepso", nb_columns=200)
+function find_submappings_routing(instance, vn_decompo, sn_subgraphs; solver="mepso", nb_columns=200)
 
 
     s_network = instance.s_network
@@ -71,7 +71,7 @@ function find_submappings(instance, vn_decompo, sn_subgraphs; solver="mepso", nb
             # Additional cost thing
             additional_costs = []
             for v_node in vertices(v_subgraph.graph)
-                current_addition_costs = [0 for s_node in vertices(s_subgraph.graph)]
+                current_addition_costs = zeros(nv(s_subgraph.graph))
                 original_v_node = v_subgraph.nodes_of_main_graph[v_node]
                 
                 for v_edge in vn_decompo.v_edges_master
@@ -79,14 +79,14 @@ function find_submappings(instance, vn_decompo, sn_subgraphs; solver="mepso", nb
                         placement_of_dst_node = temporary_placement[dst(v_edge)]
                         for s_node in vertices(s_subgraph.graph)
                             original_s_node = s_subgraph.nodes_of_main_graph[s_node]
-                            current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node] 
+                            current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node] / 2
                         end
                     end
                     if dst(v_edge) == original_v_node
                         placement_of_dst_node = temporary_placement[src(v_edge)]
                         for s_node in vertices(s_subgraph.graph)
                             original_s_node = s_subgraph.nodes_of_main_graph[s_node]
-                            current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node] 
+                            current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node] / 2
                         end
                     end
                 end

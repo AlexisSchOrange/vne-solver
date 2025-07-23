@@ -60,10 +60,6 @@ end
 
 
 
-
-
-
-
 function partition_graph_kahip(graph, nb_clusters; inbalance = 0.1)
 
     
@@ -205,5 +201,8 @@ function partition_vn_metis(instance, nb_clusters)
 
     return best_clusters
 end
+
+
+
 
 
