@@ -288,10 +288,6 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
     end
 
 
-    println("Aled: $cost_particles")
-
-
-
     if minimum(cost_particles)>10e6
         return Dict("mapping"=>nothing,
                     "mapping_cost"=>10e9

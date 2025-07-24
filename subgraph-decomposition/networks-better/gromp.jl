@@ -99,8 +99,6 @@ function solve_gromp(instance; nb_submappings=150, nb_virtual_subgraph=0, nb_sub
     time_cg_heuristic = 60
     value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
-    local_search(instance, vn_decompo, cg_heuristic_solution)
-
     return Dict(
         "solving_time" => (time() - time_beginning),
         "mapping_cost" => value_cg_heuristic,
