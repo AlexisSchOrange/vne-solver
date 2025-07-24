@@ -1,9 +1,9 @@
 using Random
 using Graphs, MetaGraphsNext
 
-includet("../utils/import_utils.jl")
+includet("../../../utils/import_utils.jl")
 
-function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
+function solve_local_search_routing(instance, additional_costs; nb_particle=25, nb_local_search = 50)
 
 
 
@@ -151,7 +151,7 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
             capacities = [ s_node_scores[s_node] for s_node in some_s_nodes]
             capacities_norm = (capacities .- minimum(capacities)) ./ (maximum(capacities) - minimum(capacities) + 1e-9)
 
-            costs = [ node_costs[s_node] for s_node in some_s_nodes]
+            costs = [ node_costs[s_node] + additional_costs[v_node][s_node] for s_node in some_s_nodes]
             costs_norm = (costs .- minimum(costs)) ./ (maximum(costs) - minimum(costs) + 1e-9)
 
             final_scores = 1. .* distances_norm .+ 0.5 .* costs_norm .+ 0.5 .* ( 1 .-capacities_norm) + 0.5 * rand(length(some_s_nodes))
@@ -173,7 +173,7 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
 
         placement_cost = 0
         for v_node in vertices(v_network)
-            placement_cost += node_costs[placement[v_node]] 
+            placement_cost += node_costs[placement[v_node]] + additional_costs[v_node][placement[v_node]]
         end
 
         return placement, placement_cost

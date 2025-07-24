@@ -2,7 +2,7 @@
 using Graphs, MetaGraphsNext
 includet("../../../heuristics/mepso.jl")
 includet("../../../compact/compact_plus.jl")
-
+includet("../../../heuristics/local-search-heuristic.jl")
 
 
 function find_submappings_simple(instance, vn_decompo, sn_subgraphs; solver="mepso", nb_columns=200)
@@ -53,7 +53,16 @@ function find_submappings_simple(instance, vn_decompo, sn_subgraphs; solver="mep
         for v_subgraph in vn_subgraphs
             s_subgraph = assignment_virtual_substrate_subgraphs[v_subgraph]
             sub_instance= Instance(v_subgraph.graph, s_subgraph.graph)
-            sub_mapping, cost = solve_mepso(sub_instance; nb_particle=25, nb_iter=50, time_max=0.2, print_things=false)
+
+            if solver=="mepso"
+                sub_mapping, cost = solve_mepso(sub_instance; nb_particle=25, nb_iter=50, time_max=0.2, print_things=false)
+            elseif solver=="local-search"
+                result=solve_local_search(instance; nb_particle=25, nb_local_search = 50)
+                sub_mapping = result["mapping"]
+            elseif solver=="milp"
+                result=solve_compact_ffplus(instance)
+                sub_mapping = result["mapping"]
+            end
 
             if isnothing(sub_mapping)
                 continue

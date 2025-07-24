@@ -65,7 +65,7 @@ function crazy_bound(instance)
     print("Master problem set... ")
 
     # ====== STEP 1 : INIT ======= #
-    nb_columns_to_add_init = 250
+    nb_columns_to_add_init = 1000
 
     println("Paving time...")
     time_0 = time()
@@ -108,7 +108,6 @@ function crazy_bound(instance)
         nb_iter, cg_value, nb_columns, time_overall
     )
 
-    return
 
     #= ====== STEP 2a) HEURISTIC PAVING PRICING WITH PSO ====== #
 
@@ -272,11 +271,11 @@ function crazy_bound(instance)
     # ====== STEP 2: smaller pricers - paving the network
     println("------- Part 2: Reduced pricers")
 
-    nb_columns_to_put = 1000
+    nb_columns_to_put = 600
     nb_columns_smallpricer = 0
 
     nb_substrate_subgraph = floor(Int, nv(s_network) / 15)  
-    nb_nodes_subgraph = 32
+    nb_nodes_subgraph = 27
     sn_decompo_clusters = get_sn_decompo(s_network, nb_substrate_subgraph, nb_nodes_subgraph)
     println("We have $nb_substrate_subgraph sub-substrate, with at least $nb_nodes_subgraph capacited nodes")
 

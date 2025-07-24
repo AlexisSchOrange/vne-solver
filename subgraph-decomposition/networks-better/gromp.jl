@@ -20,6 +20,7 @@ includet("init/init-paving-simple.jl")
 
 # Find a final solution
 includet("end-heuristic/basic-ilp.jl")
+includet("end-heuristic/local-search-exact.jl")
 
 
 
@@ -71,9 +72,9 @@ function solve_gromp(instance; nb_submappings=150, nb_virtual_subgraph=0, nb_sub
     time_0 = time()
 
     if routing_penalty
-        sub_mappings = find_submappings_routing(instance, vn_decompo, sn_subgraphs, solver="mepso", nb_columns=nb_submappings)
+        sub_mappings = find_submappings_routing(instance, vn_decompo, sn_subgraphs, solver="local-search", nb_columns=nb_submappings)
     else
-        sub_mappings = find_submappings_simple(instance, vn_decompo, sn_subgraphs, solver="mepso", nb_columns=nb_submappings)
+        sub_mappings = find_submappings_simple(instance, vn_decompo, sn_subgraphs, solver="local-search", nb_columns=nb_submappings)
     end
 
     println("Mappings gotten! In just $(time() - time_0)")
@@ -98,6 +99,7 @@ function solve_gromp(instance; nb_submappings=150, nb_virtual_subgraph=0, nb_sub
     time_cg_heuristic = 60
     value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
+    local_search(instance, vn_decompo, cg_heuristic_solution)
 
     return Dict(
         "solving_time" => (time() - time_beginning),
