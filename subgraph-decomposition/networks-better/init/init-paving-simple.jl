@@ -57,10 +57,10 @@ function find_submappings_simple(instance, vn_decompo, sn_subgraphs; solver="mep
             if solver=="mepso"
                 sub_mapping, cost = solve_mepso(sub_instance; nb_particle=25, nb_iter=50, time_max=0.2, print_things=false)
             elseif solver=="local-search"
-                result=solve_local_search(instance; nb_particle=25, nb_local_search = 50)
+                result=solve_local_search(sub_instance; nb_particle=25, nb_local_search = 50)
                 sub_mapping = result["mapping"]
             elseif solver=="milp"
-                result=solve_compact_ffplus(instance)
+                result=solve_compact_ffplus(sub_instance)
                 sub_mapping = result["mapping"]
             end
 

@@ -190,7 +190,6 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
     s_network_dir = instance.s_network_dir
 
 
-
     #---- Make sure there are enough capacited nodes
     nodes_with_caps = 0
     for s_node in vertices(s_network)
@@ -289,7 +288,9 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
     end
 
 
-    println("Best mapping has cost: $(minimum(cost_particles)), in just: $(time() - time_beginning)s")
+    println("Aled: $cost_particles")
+
+
 
     if minimum(cost_particles)>10e6
         return Dict("mapping"=>nothing,
