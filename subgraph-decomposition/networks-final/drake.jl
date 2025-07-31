@@ -56,7 +56,15 @@ function solve_drake(instance; nb_virtual_subgraph=0)
     
     # ------ Substrate decomposition ------ #
     size_max_v_subgraph = maximum(nv(v_subgraph.graph) for v_subgraph in vn_decompo.subgraphs)
-    nb_substrate_subgraphs = floor(Int, nv(s_network) / (size_max_v_subgraph*1.5))
+    nb_substrate_nodes_capacited = 0
+    for s_node in vertices(s_network)
+        if get_attribute_node(s_network, s_node, :cap) >= 1
+            nb_substrate_nodes_capacited += 1
+        end
+    end
+    ratio_capacited = nb_substrate_nodes_capacited / nv(s_network)
+
+    nb_substrate_subgraphs = floor(Int, nv(s_network) / (size_max_v_subgraph*1.5/ratio_capacited))
     clusters = partition_graph(s_network.graph, nb_substrate_subgraphs; max_umbalance = 1.3)
     sn_subgraphs = []
     for (i_subgraph, cluster) in enumerate(clusters)

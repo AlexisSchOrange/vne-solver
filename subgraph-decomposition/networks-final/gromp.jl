@@ -42,16 +42,22 @@ function solve_gromp(instance; nb_submappings=150, nb_virtual_subgraph=0, nb_sub
     end
     v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph, max_umbalance=1.2)   
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
+    vn_subgraphs = vn_decompo.subgraphs
     println("Virtual network decomposition done:")
-    print_stuff_subgraphs(v_network, vn_decompo.subgraphs)
+    print_stuff_subgraphs(v_network, vn_subgraphs)
     println("   and $(length(vn_decompo.v_edges_master)) cutting edges")
     
     # ------ Substrate decomposition ------ #
-    if nb_substrate_subgraph == 0
-        size_max_v_subgraph = maximum(nv(v_subgraph.graph) for v_subgraph in vn_decompo.subgraphs)
-        nb_substrate_subgraph = floor(Int, nv(s_network) / (size_max_v_subgraph*1.5))
+    size_max_v_subgraph = maximum(nv(v_subgraph.graph) for v_subgraph in vn_decompo.subgraphs)
+    nb_substrate_nodes_capacited = 0
+    for s_node in vertices(s_network)
+        if get_attribute_node(s_network, s_node, :cap) >= 1
+            nb_substrate_nodes_capacited += 1
+        end
     end
-    clusters = partition_graph(s_network.graph, nb_substrate_subgraph; max_umbalance = 1.3)
+    ratio_capacited = nb_substrate_nodes_capacited / nv(s_network)
+    nb_substrate_subgraphs = floor(Int, nv(s_network) / (size_max_v_subgraph*1.5/ratio_capacited))
+    clusters = partition_graph(s_network.graph, nb_substrate_subgraphs; max_umbalance = 1.3)
     sn_subgraphs = []
     for (i_subgraph, cluster) in enumerate(clusters)
         induced_subg = my_induced_subgraph(s_network, cluster, "sub_sn_$i_subgraph")
