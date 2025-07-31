@@ -63,8 +63,7 @@ function solve_drake(instance; nb_virtual_subgraph=0)
         end
     end
     ratio_capacited = nb_substrate_nodes_capacited / nv(s_network)
-
-    nb_substrate_subgraphs = floor(Int, nv(s_network) / (size_max_v_subgraph*1.5/ratio_capacited))
+    nb_substrate_subgraphs = maximum([floor(Int, nv(s_network) / (size_max_v_subgraph*1.5/ratio_capacited)), nb_virtual_subgraph])
     clusters = partition_graph(s_network.graph, nb_substrate_subgraphs; max_umbalance = 1.3)
     sn_subgraphs = []
     for (i_subgraph, cluster) in enumerate(clusters)
