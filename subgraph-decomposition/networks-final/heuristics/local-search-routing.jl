@@ -1,9 +1,9 @@
 using Random
 using Graphs, MetaGraphsNext
 
-includet("../utils/import_utils.jl")
+includet("../../../utils/import_utils.jl")
 
-function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
+function solve_local_search_routing(instance, additional_costs; nb_particle=25, nb_local_search = 50)
 
 
 
@@ -151,7 +151,7 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
             capacities = [ s_node_scores[s_node] for s_node in some_s_nodes]
             capacities_norm = (capacities .- minimum(capacities)) ./ (maximum(capacities) - minimum(capacities) + 1e-9)
 
-            costs = [ node_costs[s_node] for s_node in some_s_nodes]
+            costs = [ node_costs[s_node] + additional_costs[v_node][s_node] for s_node in some_s_nodes]
             costs_norm = (costs .- minimum(costs)) ./ (maximum(costs) - minimum(costs) + 1e-9)
 
             final_scores = 1. .* distances_norm .+ 0.5 .* costs_norm .+ 0.5 .* ( 1 .-capacities_norm) + 0.5 * rand(length(some_s_nodes))
@@ -173,7 +173,7 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
 
         placement_cost = 0
         for v_node in vertices(v_network)
-            placement_cost += node_costs[placement[v_node]] 
+            placement_cost += node_costs[placement[v_node]] + additional_costs[v_node][placement[v_node]]
         end
 
         return placement, placement_cost
@@ -188,6 +188,7 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
     v_network = instance.v_network
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
+
 
 
     #---- Make sure there are enough capacited nodes
@@ -265,19 +266,11 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
             for v_neighbor in neighbors(v_network, some_v_node) 
                 push!(v_nodes_deleted, v_neighbor)
             end
+
             for v_node in v_nodes_deleted
                 placement[v_node] = 0
             end
-
-            #= delete some number of nodes
-            nb_nodes_to_delete = 5
-            some_v_node = rand(1:nv(v_network))
-            v_nodes_deleted = [some_v_node]
-            neighbors = neighbors(v_network, some_v_node) 
-            while length(v_nodes_deleted) > nb_nodes_to_delete
-
-            end
-            =#  
+                
 
             # reconstruct
             placement, placement_cost = complete_partial_placement(placement) 
@@ -295,6 +288,8 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
         push!(cost_particles, particle_best_cost)
     end
 
+
+    #println("Best mapping has cost: $(minimum(cost_particles)), in just: $(time() - time_beginning)s")
 
     if minimum(cost_particles)>10e6
         return Dict("mapping"=>nothing,

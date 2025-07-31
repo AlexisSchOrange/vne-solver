@@ -97,18 +97,18 @@ function find_submappings_routing(instance, vn_decompo, sn_subgraphs; solver="me
     
             # GETTING THE SUBMAPPING
             if solver == "mepso"
-                sub_mapping, cost = solve_mepso_custom(sub_instance, additional_costs; nb_particle=25, nb_iter=50, print_things=false)
+                sub_mapping, cost = solve_mepso_custom(sub_instance, additional_costs; nb_particle=25, nb_iter=50, time_max=0.2, print_things=false)
             elseif solver == "local-search"
                 result = solve_local_search_routing(sub_instance, additional_costs; nb_particle=25, nb_local_search=50)
                 sub_mapping = result["mapping"]
                 cost = result["mapping_cost"]
-            elseif solver == "exact"
-                result = solve_compact_addition_routing_cost(sub_instance, additional_costs; time_solver = 30)
+            elseif solver == "milp"
+                result = solve_compact_addition_routing_cost(sub_instance, additional_costs; time_solver = 5)
                 sub_mapping = result["mapping"]
                 cost = result["solution_value"]
             else
                 println("I don't know your solver. Using mepso.")
-                sub_mapping, cost = solve_mepso_custom(sub_instance, additional_costs; nb_particle=25, nb_iter=50, print_things=false)
+                sub_mapping, cost = solve_mepso_custom(sub_instance, additional_costs; nb_particle=25, nb_iter=50, time_max=0.2, print_things=false)
             end
 
             if isnothing(sub_mapping) # invalid submapping!

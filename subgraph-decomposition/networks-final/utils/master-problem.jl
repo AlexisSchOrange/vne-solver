@@ -3,71 +3,6 @@ using JuMP, CPLEX
 
 ### ALL THE STUFF THAT IS NEEDED FOR THE DECOMPOSITION
 
-### === Structs
-struct NetworkDecomposition
-    subgraphs
-    v_nodes_assignment
-    v_edges_master
-end
-
-struct Subgraph
-    graph
-    nodes_of_main_graph
-end
-
-
-
-
-function set_up_decompo(instance, node_partitionning)
-
-    vn = instance.v_network
-
-        
-    node_assignment = Dict()
-    for v_node in vertices(vn)
-        node_assignment[v_node] = Dict()
-    end
-
-    # getting the subgraphs and the node assignment
-    # i couldnt make the base induced_graph function work so I did adapt it
-    subgraphs = []
-    for (i_subgraph, v_nodes) in enumerate(node_partitionning)
-        subgraph = Subgraph(my_induced_subgraph(vn, v_nodes, "subgraph_$i_subgraph"), v_nodes)
-        
-        for (i_node, v_node) in enumerate(v_nodes)
-            node_assignment[v_node][subgraph] = i_node
-        end
-        push!(subgraphs, subgraph)
-        #println("Look at my nice graph for the nodes $v_nodes")
-        #print_graph(subgraph.graph)
-    end
-
-
-    # finding out the master virtual edges
-    v_edge_master = [] 
-    for v_edge in edges(vn)
-        in_master = true
-        for subgraph_src in keys(node_assignment[src(v_edge)])
-            for subgraph_dst in keys(node_assignment[dst(v_edge)])
-                if subgraph_src == subgraph_dst
-                    in_master = false
-                end
-            end
-        end
-        if in_master
-            push!(v_edge_master, v_edge)
-        end
-    end
-
-    
-
-    vn_decompo = NetworkDecomposition(subgraphs, node_assignment, v_edge_master)
-
-
-
-    return vn_decompo
-end
-
 
 
 
@@ -82,23 +17,6 @@ struct MasterProblem
 end
 
 
-struct Column
-    variable
-    mapping
-    cost
-end
-
-
-struct DualCosts
-    convexity
-    capacity_s_node
-    capacity_s_edge
-    flow_conservation
-    departure
-end
-
-
-
 function set_up_master_problem(instance, vn_decompo)
 
     v_network = instance.v_network
@@ -106,13 +24,16 @@ function set_up_master_problem(instance, vn_decompo)
     s_network_dir = instance.s_network_dir
 
     model = Model(CPLEX.Optimizer)
-    #set_silent(model)
+    set_silent(model)
 
+    #set_optimizer_attribute(model, "CPXPARAM_Emphasis_MIP", 5)
+
+    #set_optimizer_attribute(model, "CPXPARAM_LPMethod", 2)
     
     ### Variables    
     @variable(model, 0. <= y[
         v_edge in vn_decompo.v_edges_master, 
-        s_edge in edges(s_network_dir)] <=1. );
+        s_edge in edges(s_network_dir)] <= 1. );
     
 
     columns = Dict()
@@ -184,6 +105,16 @@ function set_up_master_problem(instance, vn_decompo)
     return MasterProblem(instance, model, vn_decompo, columns)
 end
 
+
+
+
+# columns
+
+struct Column
+    variable
+    mapping
+    cost
+end
 
 
 function add_column(master_problem, instance, subgraph, mapping, cost)
@@ -279,6 +210,18 @@ end
 
 
 
+
+
+# duals
+struct DualCosts
+    convexity
+    capacity_s_node
+    capacity_s_edge
+    flow_conservation
+    departure
+end
+
+
 function get_duals(instance, vn_decompo, master_problem)
     
     convexity = Dict()
@@ -292,31 +235,23 @@ function get_duals(instance, vn_decompo, master_problem)
     model = master_problem.model
 
     convexity= Dict()
-    #println("Convexity:")
     for subgraph in vn_decompo.subgraphs
         convexity[subgraph] = dual(model[:mapping_selec][subgraph])
-        #println(dual(model[:mapping_selec][subgraph]))
     end
 
     flow_conservation= Dict()
-    #println("Flow conservation:")
     for v_edge in vn_decompo.v_edges_master
         flow_conservation[v_edge] = Dict()
-        #println("   $v_edge")
         for s_node in vertices(instance.s_network)
             flow_conservation[v_edge][s_node] = dual(model[:flow_conservation][v_edge, s_node])
-            #println("       $s_node: $(dual(model[:flow_conservation][v_edge, s_node]))")
         end
     end
 
     departure = Dict()
-    #println("Departure:")
     for v_edge in vn_decompo.v_edges_master
-        #println("   $v_edge")
         departure[v_edge] = Dict()
         for s_node in vertices(s_network)
             departure[v_edge][s_node] = dual(model[:departure][v_edge, s_node])
-            #println("       $s_node: $(dual(model[:departure][v_edge, s_node]))")
         end
     end
 
@@ -374,6 +309,77 @@ function get_empty_duals(instance, vn_decompo)
     end
 
     return DualCosts(convexity, capacity_s_node, capacity_s_edge, flow_conservation, departure)
+end
+
+
+
+function average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs; alpha=0.7)
+
+    convexity = Dict()
+    capacity_s_node = Dict()
+    capacity_s_edge = Dict()
+    flow_conservation = Dict()
+    departure = Dict()
+
+    s_network = instance.s_network
+    v_network = instance.v_network
+
+    convexity= Dict()
+    for subgraph in vn_decompo.subgraphs
+        convexity[subgraph] = alpha * old_dual_costs.convexity[subgraph] + (1-alpha) * current_dual_costs.convexity[subgraph]
+    end
+
+    flow_conservation= Dict()
+    for v_edge in vn_decompo.v_edges_master
+        flow_conservation[v_edge] = Dict()
+        for s_node in vertices(instance.s_network)
+            flow_conservation[v_edge][s_node] = alpha * old_dual_costs.flow_conservation[v_edge][s_node] + (1-alpha) * current_dual_costs.flow_conservation[v_edge][s_node]
+        end
+    end
+
+    departure = Dict()
+    for v_edge in vn_decompo.v_edges_master
+        departure[v_edge] = Dict()
+        for s_node in vertices(s_network)
+            departure[v_edge][s_node] = alpha * old_dual_costs.departure[v_edge][s_node]  + (1-alpha) * current_dual_costs.departure[v_edge][s_node] 
+        end
+    end
+
+
+    for s_node in vertices(instance.s_network)
+        capacity_s_node[s_node]  = alpha * old_dual_costs.capacity_s_node[s_node] + (1-alpha) * current_dual_costs.capacity_s_node[s_node]
+    end
+
+    for s_edge in edges(instance.s_network)
+        capacity_s_edge[s_edge]  = alpha * old_dual_costs.capacity_s_edge[s_edge] + (1-alpha) * current_dual_costs.capacity_s_edge[s_edge]
+    end
+
+
+    return DualCosts(convexity, capacity_s_node, capacity_s_edge, flow_conservation, departure)
+
+
+end
+
+
+
+function print_dual(instance, vn_decompo, dual)
+    println("Printing duals values...")
+
+    println("Convexity:")
+    for v_subgraph in vn_decompo.subgraphs
+        print("$(dual.convexity[v_subgraph]) ")
+    end
+
+    println("Nodes capacities:")
+    for s_node in vertices(instance.s_network)
+        println("Node $s_node: $(dual.capacity_s_node[s_node])")
+    end
+
+    println("Edge capacities:")
+    for s_edge in edges(instance.s_network)
+        println("Edge $s_edge: $(dual.capacity_s_edge[s_edge])")
+    end
+
 end
 
 

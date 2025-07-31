@@ -2,13 +2,14 @@ using Printf
 using Graphs, MetaGraphsNext
 using JuMP, CPLEX
 
+
 #general
 includet("../../utils/import_utils.jl")
 
 # utils colge
-includet("utils/utils-subgraphdecompo.jl")
+includet("utils/master-problem.jl")
+includet("utils/graph-decomposition.jl")
 includet("utils/partition-graph.jl")
-includet("utils/checkers.jl")
 
 # init
 includet("init/init-paving-routing.jl")
@@ -41,29 +42,30 @@ function solve_drake(instance; nb_virtual_subgraph=0)
 
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
+
     # ------ Virtual decomposition ------ #
     if nb_virtual_subgraph == 0
         nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
     end
     v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph, max_umbalance=1.2)   
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
-    println("Virtual network decomposition done:")
-    print_stuff_subgraphs(v_network, vn_decompo.subgraphs)
-    println("   and $(length(vn_decompo.v_edges_master)) cutting edges")
     vn_subgraphs = vn_decompo.subgraphs
-
-
-    # Get substrate subgraphs
+    println("Virtual network decomposition done:")
+    print_stuff_subgraphs(v_network, vn_subgraphs)
+    println("   and $(length(vn_decompo.v_edges_master)) cutting edges")
+    
+    # ------ Substrate decomposition ------ #
     size_max_v_subgraph = maximum(nv(v_subgraph.graph) for v_subgraph in vn_decompo.subgraphs)
     nb_substrate_subgraphs = floor(Int, nv(s_network) / (size_max_v_subgraph*1.5))
-
-    clusters = partition_graph(s_network.graph, nb_substrate_subgraphs; max_umbalance = 1.25)
+    clusters = partition_graph(s_network.graph, nb_substrate_subgraphs; max_umbalance = 1.3)
     sn_subgraphs = []
     for (i_subgraph, cluster) in enumerate(clusters)
-        print("Cluster $i_subgraph has $(length(cluster)) nodes ")
         induced_subg = my_induced_subgraph(s_network, cluster, "sub_sn_$i_subgraph")
-        push!(sn_subgraphs,Subgraph(induced_subg, cluster))
+        push!(sn_subgraphs, Subgraph(induced_subg, cluster))
     end
+    println("Substrate network decomposition done:")
+    print_stuff_subgraphs(s_network, sn_subgraphs)
+
 
 
     master_problem = set_up_master_problem(instance, vn_decompo)
@@ -76,7 +78,7 @@ function solve_drake(instance; nb_virtual_subgraph=0)
     nb_mappings_first = 150
 
     time_0=time()
-    sub_mappings = find_submappings_routing(instance, vn_decompo, sn_subgraphs, solver="exact", nb_columns=nb_mappings_first)
+    sub_mappings = find_submappings_routing(instance, vn_decompo, sn_subgraphs, solver="milp", nb_columns=nb_mappings_first)
     println("Mappings gotten! In just $(time() - time_0)")
 
 
@@ -106,6 +108,8 @@ function solve_drake(instance; nb_virtual_subgraph=0)
     @printf("Iter %2d  RMP value: %10.3f  %5d column    time: %5.2fs  \n",
         nb_iter, rmp_value, nb_columns, time_overall
     )
+
+    
     
     
 
@@ -126,7 +130,8 @@ function solve_drake(instance; nb_virtual_subgraph=0)
     end
     base_shortest_paths = floyd_warshall_shortest_paths(s_network_dir, distmx)
 
-        
+    alpha_colge=0.95
+    used_dual_costs = get_empty_duals(instance, vn_decompo)
     max_columns = 300
     pricers_sn_partition = set_up_pricers_sn_partitionning(instance, vn_subgraphs, sn_subgraphs)
 
@@ -166,7 +171,10 @@ function solve_drake(instance; nb_virtual_subgraph=0)
     
         
         # Solve
-        dual_costs = get_duals(instance, vn_decompo, master_problem)
+        old_dual_costs = used_dual_costs
+        current_dual_costs = get_duals(instance, vn_decompo, master_problem)
+        used_dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_colge)
+        
         nb_feasible = 0
         overall_reduced_costs = 0
         for v_subgraph in vn_subgraphs
@@ -202,7 +210,7 @@ function solve_drake(instance; nb_virtual_subgraph=0)
 
                         
             pricer = pricers_sn_partition[v_subgraph][s_subgraph]
-            update_pricer_sn_decompo_penalty(vn_decompo, pricer, dual_costs, additional_costs)
+            update_pricer_sn_decompo_penalty(vn_decompo, pricer, used_dual_costs, additional_costs)
             result_pricer = solve_pricers_sn_decompo_penalty(pricer, additional_costs)
             if result_pricer["true_cost"] < 10e6
                 
@@ -251,7 +259,7 @@ function solve_drake(instance; nb_virtual_subgraph=0)
 
     println("And in the end... $value_cg_heuristic")
 
-    local_search_changin(instance, cg_heuristic_solution, 300)
+    #local_search_changin(instance, cg_heuristic_solution, 300)
 
 
     return Dict("mapping_cost"=>value_cg_heuristic,

@@ -10,9 +10,9 @@ using Printf
 includet("../../utils/import_utils.jl")
 
 # utils colge
-includet("utils/utils-subgraphdecompo.jl")
+includet("utils/master-problem.jl")
+includet("utils/graph-decomposition.jl")
 includet("utils/partition-graph.jl")
-includet("utils/checkers.jl")
 
 # heuristics
 includet("init/init-paving-routing.jl")
@@ -51,7 +51,7 @@ function solve_gromp(instance; nb_submappings=150, nb_virtual_subgraph=0, nb_sub
         size_max_v_subgraph = maximum(nv(v_subgraph.graph) for v_subgraph in vn_decompo.subgraphs)
         nb_substrate_subgraph = floor(Int, nv(s_network) / (size_max_v_subgraph*1.5))
     end
-    clusters = partition_graph(s_network.graph, nb_substrate_subgraph; max_umbalance = 1.25)
+    clusters = partition_graph(s_network.graph, nb_substrate_subgraph; max_umbalance = 1.3)
     sn_subgraphs = []
     for (i_subgraph, cluster) in enumerate(clusters)
         induced_subg = my_induced_subgraph(s_network, cluster, "sub_sn_$i_subgraph")
@@ -59,6 +59,10 @@ function solve_gromp(instance; nb_submappings=150, nb_virtual_subgraph=0, nb_sub
     end
     println("Substrate network decomposition done:")
     print_stuff_subgraphs(s_network, sn_subgraphs)
+
+
+
+
 
 
 
@@ -92,9 +96,8 @@ function solve_gromp(instance; nb_submappings=150, nb_virtual_subgraph=0, nb_sub
     optimize!(model)
     rmp_value = objective_value(model)
     println("RMP value: $(rmp_value)")
-    time_cg_heuristic = 30
+    time_cg_heuristic = 60
     value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
-    #local_search_changin(instance, cg_heuristic_solution, 300)
 
     return Dict(
         "solving_time" => (time() - time_beginning),

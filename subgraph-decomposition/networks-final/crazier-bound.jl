@@ -10,9 +10,9 @@ using Printf
 includet("../../utils/import_utils.jl")
 
 # utils colge
-includet("utils/utils-subgraphdecompo.jl")
+includet("utils/master-problem.jl")
+includet("utils/graph-decomposition.jl")
 includet("utils/partition-graph.jl")
-includet("utils/checkers.jl")
 
 
 # init
@@ -26,10 +26,12 @@ includet("pricers/mepso/mepso-pricer-subsn.jl")
 includet("pricers/local-search/ls-pricer-subsn.jl")
 
 
+
+
 function crazy_bound(instance)
     
     
-    println("Starting...")
+    println("Starting...")  
 
     time_master = 0
     nb_iter=0
@@ -40,6 +42,9 @@ function crazy_bound(instance)
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
 
+
+    alpha_colge = 0.85
+    
     time_beginning = time()
 
 
@@ -65,7 +70,7 @@ function crazy_bound(instance)
     print("Master problem set... ")
 
     # ====== STEP 1 : INIT ======= #
-    nb_columns_to_add_init = 500
+    nb_columns_to_add_init = 300
 
     println("Paving time...")
     time_0 = time()
@@ -85,7 +90,7 @@ function crazy_bound(instance)
     end
 
     #sub_mappings = find_submappings_routing(instance, vn_decompo, sn_subgraphs, solver="mepso", nb_columns=nb_columns_to_add_init)
-    sub_mappings = find_submappings_simple(instance, vn_decompo, sn_subgraphs, solver="local-search", nb_columns=nb_columns_to_add_init)
+    sub_mappings = find_submappings_simple(instance, vn_decompo, sn_subgraphs, solver="mepso", nb_columns=nb_columns_to_add_init)
 
     println("Mappings gotten! In just $(time() - time_0)")
     for v_subgraph in vn_decompo.subgraphs
@@ -123,7 +128,38 @@ function crazy_bound(instance)
     # ====== STEP 2: smaller pricers - paving the network
     println("------- Part 2: Reduced pricers")
 
-    nb_columns_to_put = 500
+
+
+    #
+    println("YAY I MEAN LET'S LOOK AT THE DUAL COSTS EHEHEHEHHEHEHEHEHEHEH")
+    dual_costs = get_duals(instance, vn_decompo, master_problem)
+    
+    capacity_s_node_history = []
+    for s_node in vertices(s_network)
+        push!(capacity_s_node_history, [dual_costs.capacity_s_node[s_node]])
+    end
+
+    flow_conservation_history= Dict()
+    for v_edge in vn_decompo.v_edges_master
+        
+        flow_conservation_history[v_edge] = []
+        for s_node in vertices(s_network)
+            push!(flow_conservation_history[v_edge], [dual_costs.flow_conservation[v_edge][s_node]])
+        end
+    end
+
+    departure_history= Dict()
+    for v_edge in vn_decompo.v_edges_master
+        departure_history[v_edge] = []
+        for s_node in vertices(s_network)
+            push!(departure_history[v_edge], [dual_costs.departure[v_edge][s_node]])
+        end
+    end
+    #
+
+    used_dual_costs = get_duals(instance, vn_decompo, master_problem)
+
+    nb_columns_to_put = 1000
     nb_columns_smallpricer = 0
 
     nb_substrate_subgraph = floor(Int, nv(s_network) / 15)  
@@ -140,19 +176,37 @@ function crazy_bound(instance)
         end
     end
 
+
+    
     keep_on = true
     reason = "I don't know"
     while keep_on
         nb_iter += 1
 
         # ---- pricers part
-
-        dual_costs = get_duals(instance, vn_decompo, master_problem)
+        old_dual_costs = used_dual_costs
+        current_dual_costs = get_duals(instance, vn_decompo, master_problem)
+        used_dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_colge)
         
-        for key in keys(sub_pricers_last_values)
-            sub_pricers_last_values[key] = sub_pricers_last_values[key]*1.1
+
+
+
+        
+        # IM WATCHINGGGG
+
+        for s_node in vertices(s_network)
+            push!(capacity_s_node_history[s_node], used_dual_costs.capacity_s_node[s_node])
         end
         
+        for v_edge in vn_decompo.v_edges_master
+            for s_node in vertices(s_network)
+                push!(flow_conservation_history[v_edge][s_node], used_dual_costs.flow_conservation[v_edge][s_node])
+                push!(departure_history[v_edge][s_node], used_dual_costs.departure[v_edge][s_node])
+            end
+        end
+        #
+
+
         sorted_subpb = sort(collect(sub_pricers_last_values), by=x->x[2])
         average_obj = 0
         nb_pricer_to_do = min(5, length(keys(sub_pricers_last_values)))
@@ -162,7 +216,7 @@ function crazy_bound(instance)
             pricer_sub_sn = couple[1]
 
 
-            update_pricer_sn_decompo(vn_decompo, pricer_sub_sn, dual_costs)
+            update_pricer_sn_decompo(vn_decompo, pricer_sub_sn, used_dual_costs)
             column, true_cost, reduced_cost = solve_pricers_sn_decompo(pricer_sub_sn, time_limit=50)
 
             if column !== nothing && reduced_cost < -0.001
@@ -181,7 +235,7 @@ function crazy_bound(instance)
 
         optimize!(model)
         time_master +=  solve_time(model)       
-        println("Time last iter master : $(solve_time(model))")
+        #println("Time last iter master : $(solve_time(model))")
         cg_value = objective_value(model)
 
         time_overall = time()-time_beginning
@@ -202,7 +256,7 @@ function crazy_bound(instance)
     println("\n Step 2 finished, reason: $reason.")
     
 
-
+    
     
     # ====== STEP 3: full pricers
     println("\n------- Solving method: Exact pricers")
@@ -211,14 +265,17 @@ function crazy_bound(instance)
     for subgraph in vn_decompo.subgraphs
         pricers_full[subgraph] = set_up_pricer(instance, subgraph)
     end
-    
+    old_cg_value = cg_value
     keep_on = true
     reason = "I don't know"
     while keep_on
         nb_iter += 1
 
         # ---- Pricers things
-        dual_costs = get_duals(instance, vn_decompo, master_problem)
+        current_dual_costs = get_duals(instance, vn_decompo, master_problem)
+        old_dual_costs = used_dual_costs
+        used_dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_colge)
+        
 
         has_found_new_column = false
         sum_pricers_values = 0
@@ -229,7 +286,7 @@ function crazy_bound(instance)
             time_limit_pricer = 500
 
 
-            sub_mapping, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, dual_costs; time_limit = time_limit_pricer)
+            sub_mapping, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, used_dual_costs; time_limit = time_limit_pricer)
 
             
             if (!isnothing(sub_mapping)) && reduced_cost < -0.0001
@@ -249,7 +306,7 @@ function crazy_bound(instance)
 
         end
 
-        current_lower_bound = cg_value + sum_pricers_values
+        current_lower_bound = (1-alpha_colge) * cg_value + (alpha_colge) * old_cg_value + sum_pricers_values
         if current_lower_bound > lower_bound
             lower_bound = current_lower_bound
         end
@@ -260,6 +317,7 @@ function crazy_bound(instance)
         optimize!(model)
         time_master +=  solve_time(model)
 
+        old_cg_value = cg_value
         cg_value = objective_value(model)
 
         time_overall = time()-time_beginning
@@ -269,18 +327,47 @@ function crazy_bound(instance)
             nb_iter, cg_value, lower_bound, nb_columns, time_overall, average_obj)
 
 
-
+        keep_on = true
         if !has_found_new_column
             keep_on = false
             reason="no improving columns"
         end
-        keep_on = false
 
 
     end
 
-        
+    #=
 
+    println("AND NOW MADAME MONSIEUR:")
+
+
+    println("Capacity node history:")
+    for s_node in vertices(s_network)
+        println("Node $s_node: $(capacity_s_node_history[s_node])")
+    end
+
+
+
+    println("Flow conservation history:")
+    for v_edge in vn_decompo.v_edges_master
+        println("\n FOR $v_edge \n\n")
+        for s_node in vertices(s_network)
+            #println("for node $s_node: $(flow_conservation_history[v_edge][s_node])")
+            println("For node $s_node: minimum $(minimum(flow_conservation_history[v_edge][s_node])), maximum $(maximum(flow_conservation_history[v_edge][s_node]))")
+        end
+    end
+
+
+    println("\n\n\n\n\nDeparture history:")
+    for v_edge in vn_decompo.v_edges_master
+        println("\n FOR $v_edge \n\n")
+        for s_node in vertices(s_network)
+            #println("for node $s_node: $(departure_history[v_edge][s_node])")
+            println("For node $s_node: minimum $(minimum(departure_history[v_edge][s_node])), maximum $(maximum(departure_history[v_edge][s_node]))")
+        end
+    end
+
+    =#
 
     print("\n==================== CG finished ====================\nReason: $reason \n")
     println("Time in MP: $(round(time_master; digits=3)) , time in SP: idk, time overall: $(round(time_overall; digits=3))")
@@ -292,13 +379,23 @@ function crazy_bound(instance)
     
     
     # ======= GETTING A SOLUTION ======= #
-    time_cg_heuristic = 600
-    value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
+    # LETS LOOK AT THE THINGS WE HAVE EHEHEHEHEHEHEHEHEHEHEHEHEHEHEHEHEH
 
+    println("Looking at the solution:")
+
+    for v_subgraph in vn_decompo.subgraphs
+        println("For $v_subgraph, we have:")
+        for column in master_problem.columns[v_subgraph]
+            if value(column.variable) > 0.0001
+                println("Column $column with $(value(column.variable))")
+            end
+        end
+        println("\n\n\n")
+    end
+    
 
     result = Dict()
     result["solving_time"] = time() - time_beginning
-    result["mapping_cost"] = value_cg_heuristic
 
     return result
 end
