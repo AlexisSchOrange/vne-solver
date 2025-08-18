@@ -24,7 +24,7 @@ includet("end-heuristic/local-search-exact.jl")
 
 
 
-function solve_gromp(instance; nb_submappings=150, nb_virtual_subgraph=0, nb_substrate_subgraph=0, routing_penalty=true)
+function solve_gromp(instance; nb_virtual_subgraph=0, nb_submappings=150, routing_penalty=true)
     
     v_network = instance.v_network
     s_network = instance.s_network
@@ -110,6 +110,7 @@ function solve_gromp(instance; nb_submappings=150, nb_virtual_subgraph=0, nb_sub
         "mapping_cost" => value_cg_heuristic,
         "rmp_value" => rmp_value
     )
+    
 end
 
 

@@ -23,7 +23,7 @@ includet("end-heuristic/local-search-exact.jl")
 
 
 
-function solve_drake(instance; nb_virtual_subgraph=0)
+function solve_drake(instance; nb_virtual_subgraph=0, nb_columns_max=300)
 
 
 
@@ -37,7 +37,6 @@ function solve_drake(instance; nb_virtual_subgraph=0)
 
     println("Starting...")
     time_beginning = time()
-    time_master = 0
     nb_columns = 0
 
 
@@ -82,12 +81,10 @@ function solve_drake(instance; nb_virtual_subgraph=0)
 
     # ======= PAVING THE NETWORK  ======= #
     println("STEP 1: INITIALIZATION...")
-    nb_mappings_first = 150
+    nb_mappings_first = 100
 
     time_0=time()
     sub_mappings = find_submappings_routing(instance, vn_decompo, sn_subgraphs, solver="milp", nb_columns=nb_mappings_first)
-    println("Mappings gotten! In just $(time() - time_0)")
-
 
     for v_subgraph in vn_decompo.subgraphs
         for mapping in sub_mappings[v_subgraph]
@@ -96,12 +93,11 @@ function solve_drake(instance; nb_virtual_subgraph=0)
         end
     end
 
-    
+    println("$nb_columns mappings gotten! In just $(time() - time_0)")
 
 
     # ======= FIRST ITERATION OF MASTER PROBLEM ======= #
     optimize!(model)
-    time_master +=  solve_time(model)
     status = termination_status(model)
     if status != MOI.OPTIMAL
         println("Master problem is infeasible or unfinished: $status")
@@ -117,15 +113,6 @@ function solve_drake(instance; nb_virtual_subgraph=0)
     )
 
     
-    
-    
-
-    # ---- Restricted master problem heuristic
-    time_cg_heuristic = 60
-    time_beg_first_ilp = time()
-    value_cg_heuristic_1,  = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
-    time_to_remove = time() - time_beg_first_ilp
-    println("Well with these 150 mappings I got a solution of $value_cg_heuristic_1 in just $time_to_remove")
 
 
     # ======= PAVING THE NETWORK WITH COLUMN GENERATION ======= #
@@ -139,10 +126,9 @@ function solve_drake(instance; nb_virtual_subgraph=0)
 
     alpha_colge=0.95
     used_dual_costs = get_empty_duals(instance, vn_decompo)
-    max_columns = 300
     pricers_sn_partition = set_up_pricers_sn_partitionning(instance, vn_subgraphs, sn_subgraphs)
 
-    while nb_columns < max_columns
+    while nb_columns < nb_columns_max
 
         # ---- pricers part
 
@@ -243,7 +229,6 @@ function solve_drake(instance; nb_virtual_subgraph=0)
 
         # ---- master problem part
         optimize!(model)
-        time_master +=  solve_time(model)
         rmp_value = objective_value(model)
 
 
@@ -261,17 +246,14 @@ function solve_drake(instance; nb_virtual_subgraph=0)
     # ======= END HEURISTICS ======= #
 
     # ---- Restricted master problem heuristic
-    time_cg_heuristic = 120
+    time_cg_heuristic = 60
     value_cg_heuristic, cg_heuristic_solution = basic_heuristic(instance, vn_decompo, master_problem, time_cg_heuristic)
 
-    println("And in the end... $value_cg_heuristic")
+    println("\nSolution obtained: $value_cg_heuristic\n")
 
     #local_search_changin(instance, cg_heuristic_solution, 300)
 
-
-    return Dict("mapping_cost"=>value_cg_heuristic,
-                "mapping_cost_1"=>value_cg_heuristic_1,
-                "time_1" => time_to_remove)
+    return Dict("mapping_cost"=>value_cg_heuristic)
 
 end
 
