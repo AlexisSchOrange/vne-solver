@@ -103,7 +103,7 @@ function find_submappings_routing(instance, vn_decompo, sn_subgraphs; solver="me
                 sub_mapping = result["mapping"]
                 cost = result["mapping_cost"]
             elseif solver == "milp"
-                result = solve_compact_addition_routing_cost(sub_instance, additional_costs; time_solver = 10)
+                result = solve_compact_addition_routing_cost(sub_instance, additional_costs; time_solver = 60)
                 sub_mapping = result["mapping"]
                 cost = result["solution_value"]
             else

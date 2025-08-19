@@ -232,7 +232,7 @@ end
 
 
 
-function solve_pricers_sn_decompo_penalty(pricer, additional_costs; time_limit = 1000)
+function solve_pricers_sn_decompo_penalty(pricer, additional_costs; time_limit = 60)
 
     original_s_network_dir = pricer.original_instance.s_network_dir
     sn_subgraph = pricer.sn_subgraph
