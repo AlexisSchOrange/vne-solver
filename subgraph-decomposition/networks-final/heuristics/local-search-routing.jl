@@ -200,8 +200,8 @@ function solve_local_search_routing(instance, additional_costs; nb_particle=25, 
     end
     if nodes_with_caps < nv(v_network)
         println("What the hell? Not enough capacited nodes...")
-        return Dict("mapping"=>nothing, 
-                    "mapping_cost"=>10e9
+        return (mapping=>nothing, 
+                    mapping_cost=>10e9
         )
     end
 
@@ -302,9 +302,6 @@ function solve_local_search_routing(instance, additional_costs; nb_particle=25, 
         push!(placement_particles, particle_best_placement)
         push!(cost_particles, particle_best_cost)
     end
-
-
-    #println("Best mapping has cost: $(minimum(cost_particles)), in just: $(time() - time_beginning)s")
 
     if minimum(cost_particles)>10e6
         return (mapping=nothing,
