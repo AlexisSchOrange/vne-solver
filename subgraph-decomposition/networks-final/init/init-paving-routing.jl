@@ -99,7 +99,7 @@ function find_submappings_routing(instance, vn_decompo, sn_subgraphs; solver="me
             if solver == "mepso"
                 sub_mapping, cost = solve_mepso_custom(sub_instance, additional_costs; nb_particle=25, nb_iter=25, time_max=1., print_things=false)
             elseif solver == "local-search"
-                result = solve_local_search_routing(sub_instance, additional_costs; nb_particle=1, nb_local_search=500)
+                result = solve_local_search_routing(sub_instance, additional_costs; nb_particle=1, nb_local_search=300)
                 sub_mapping = result[:mapping]
                 cost = result[:mapping_cost]
             elseif solver == "milp"
