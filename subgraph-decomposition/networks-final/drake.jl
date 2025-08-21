@@ -124,7 +124,7 @@ function solve_drake(instance; nb_virtual_subgraph=0, nb_columns_max=300)
     end
     base_shortest_paths = floyd_warshall_shortest_paths(s_network_dir, distmx)
 
-    alpha_colge=0.95
+    alpha_colge=0.90
     used_dual_costs = get_empty_duals(instance, vn_decompo)
     pricers_sn_partition = set_up_pricers_sn_partitionning(instance, vn_subgraphs, sn_subgraphs)
 
@@ -164,7 +164,7 @@ function solve_drake(instance; nb_virtual_subgraph=0, nb_columns_max=300)
     
         
         # Solve
-        old_dual_costs = used_dual_costs
+        old_dual_costs = get_empty_duals(instance, vn_decompo)
         current_dual_costs = get_duals(instance, vn_decompo, master_problem)
         used_dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_colge)
         
