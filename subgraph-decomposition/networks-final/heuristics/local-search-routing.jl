@@ -200,8 +200,8 @@ function solve_local_search_routing(instance, additional_costs; nb_particle=25, 
     end
     if nodes_with_caps < nv(v_network)
         println("What the hell? Not enough capacited nodes...")
-        return (mapping=>nothing, 
-                    mapping_cost=>10e9
+        return (mapping=nothing, 
+                    mapping_cost=10e9
         )
     end
 
