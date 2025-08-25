@@ -89,8 +89,10 @@ function solve_gromp(instance; nb_virtual_subgraph=0, nb_submappings=150, routin
     print("Master problem set... ")
     for v_subgraph in vn_decompo.subgraphs
         for mapping in sub_mappings[v_subgraph]
+            check_if_column_new(master_problem, mapping, v_subgraph)
             add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
         end
+        println("Finished with that subgraph...")
     end
     print("Submappings added...")
 

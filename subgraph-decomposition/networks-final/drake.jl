@@ -83,11 +83,16 @@ function solve_drake(instance; nb_virtual_subgraph=0, nb_columns_max=300)
     println("STEP 1: INITIALIZATION...")
     nb_mappings_first = 100
 
+    nb_cols_notnew = 0
+
     time_0=time()
     sub_mappings = find_submappings_routing(instance, vn_decompo, sn_subgraphs, solver="milp", nb_columns=nb_mappings_first)
 
     for v_subgraph in vn_decompo.subgraphs
         for mapping in sub_mappings[v_subgraph]
+            if !check_if_column_new(master_problem, mapping, v_subgraph)
+                nb_cols_notnew += 1
+            end
             add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
             nb_columns += 1
         end
@@ -124,7 +129,7 @@ function solve_drake(instance; nb_virtual_subgraph=0, nb_columns_max=300)
     end
     base_shortest_paths = floyd_warshall_shortest_paths(s_network_dir, distmx)
 
-    alpha_colge=0.90
+    alpha_colge=0.
     used_dual_costs = get_empty_duals(instance, vn_decompo)
     pricers_sn_partition = set_up_pricers_sn_partitionning(instance, vn_subgraphs, sn_subgraphs)
 
@@ -165,6 +170,7 @@ function solve_drake(instance; nb_virtual_subgraph=0, nb_columns_max=300)
         
         # Solve
         old_dual_costs = get_empty_duals(instance, vn_decompo)
+        #old_dual_costs = used_dual_costs
         current_dual_costs = get_duals(instance, vn_decompo, master_problem)
         used_dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_colge)
         
@@ -210,8 +216,15 @@ function solve_drake(instance; nb_virtual_subgraph=0, nb_columns_max=300)
                 nb_feasible+=1
                 overall_reduced_costs += result_pricer["reduced_cost"]
                 sub_mapping = result_pricer["mapping"]
+                if !check_if_column_new(master_problem, sub_mapping, v_subgraph)
+                    nb_cols_notnew += 1
+                end
                 add_column(master_problem, instance, v_subgraph, sub_mapping, result_pricer["true_cost"])
                 nb_columns += 1
+
+                if (nb_columns % 100) == 0
+                    println("\nSo far: $nb_cols_notnew / $nb_columns\n")
+                end
 
                 # Temporary placement stuff
                 for v_node in vertices(v_subgraph.graph)
