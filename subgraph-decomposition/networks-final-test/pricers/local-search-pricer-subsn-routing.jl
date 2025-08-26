@@ -265,7 +265,9 @@ function solve_local_search_pricer_subsn_routing(v_subgraph, s_subgraph, sub_ins
 
         end
         push!(additional_costs, current_additional_costs)
+        #println("Additional costs for node $v_node: $current_additional_costs")
     end
+    
     
 
 
@@ -346,11 +348,10 @@ function solve_local_search_pricer_subsn_routing(v_subgraph, s_subgraph, sub_ins
     best_mapping = Mapping(v_network, s_network, best_placement, routing)
 
     # Get the true reduced cost
-    reduced_cost = best_cost
+    reduced_cost = best_cost - dual_costs.convexity[v_subgraph]
     for v_node in vertices(v_network)
         reduced_cost -= additional_costs_routing[v_node][best_placement[v_node]]
     end
-
     # Get original mapping
 
     real_cost = 0
@@ -374,8 +375,6 @@ function solve_local_search_pricer_subsn_routing(v_subgraph, s_subgraph, sub_ins
 
 
     real_mapping = Mapping(v_subgraph.graph, original_s_network_dir, real_node_placement, real_edge_routing)
-
-
 
     return (sub_mapping=real_mapping,
             real_cost=real_cost,

@@ -206,6 +206,7 @@ function add_column(master_problem, instance, subgraph, mapping, cost)
         end
     end
 
+    return column
 end
 
 

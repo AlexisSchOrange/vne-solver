@@ -37,8 +37,12 @@ function lower_bound(instance)
 
 
     # === SOME PARAMETERS === #
-    alpha_colge=0.85
-    
+    alpha_colge=0.9
+    nb_columns_to_add_init = 300
+    nb_columns_local_search = 500
+    nb_columns_milp = 1500
+    time_max_heuristics = 1200
+    time_max_overall = 3600
 
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
@@ -56,11 +60,19 @@ function lower_bound(instance)
 
 
     # === GETTING READY === #
+
+    # master problem things
     master_problem = set_up_master_problem(instance, vn_decompo)
     model = master_problem.model
     print("Master problem set... ")
     empty_dual_costs = get_empty_duals(instance, vn_decompo)
 
+    active_columns = Column[]
+    columns_useless_rounds = Dict()
+
+
+
+    # partition things
     size_max_v_subgraph = maximum(nv(v_subgraph.graph) for v_subgraph in vn_decompo.subgraphs)
     nb_substrate_nodes_capacited = 0
     for s_node in vertices(s_network)
@@ -81,9 +93,12 @@ function lower_bound(instance)
 
 
 
-    # ====== STEP 1 : PAVING ON STRICT PARTITION ======= #
-    nb_columns_to_add_init = 200
 
+
+
+
+
+    # ====== STEP 1 : PAVING ON STRICT PARTITION ======= #
 
     println("Paving time...")
     time_0 = time()
@@ -94,8 +109,10 @@ function lower_bound(instance)
     sub_mappings = result[:mappings]
     for v_subgraph in vn_decompo.subgraphs
         for mapping in sub_mappings[v_subgraph]
-            add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
+            column = add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
             nb_columns += 1
+            push!(active_columns, column)
+            columns_useless_rounds[column] = 0
         end
     end
 
@@ -119,7 +136,7 @@ function lower_bound(instance)
     println("------- Part 2: Reduced pricers")
 
     # need to complete the substrate graphs!
-    nb_nodes_subgraph = 2.5 * size_max_v_subgraph
+    nb_nodes_subgraph = 3. * size_max_v_subgraph
     sn_clusters_2 = complete_clusters(clusters, s_network, nb_nodes_to_have = nb_nodes_subgraph)
     sn_subgraphs_2 = []
     for (i_subgraph, cluster) in enumerate(sn_clusters_2)
@@ -130,8 +147,6 @@ function lower_bound(instance)
     print_stuff_subgraphs(s_network, sn_subgraphs_2)
 
 
-    nb_columns_local_search = 400
-    nb_columns_milp = 600
 
 
     #!!! For now I won't do "using the most negative reduced costs subproblems first". 
@@ -147,21 +162,50 @@ function lower_bound(instance)
     while keep_on
         nb_iter += 1
 
+
         # ---- pricers part
         old_dual_costs = used_dual_costs
         current_dual_costs = get_duals(instance, vn_decompo, master_problem)
         used_dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_colge)
         
+
+        columns_to_delete = Column[]
+        
+
+        for column in active_columns
+            if value(column.variable) < 1e-6
+                columns_useless_rounds[column] += 1
+                if columns_useless_rounds[column] > 25
+                    if reduced_cost(column.variable) > 3.
+                        push!(columns_to_delete, column)
+                        #println("Well, reduced cost: $(reduced_cost(column.variable))")
+                    end
+                end
+            else
+                columns_useless_rounds[column] = 0
+            end
+        end
+        for column in columns_to_delete
+            #println("Ok i'm deleting a column")
+            fix(column.variable, 0.0; force=true)
+            delete!(columns_useless_rounds, column)
+            filter!(x -> x!=column, active_columns)
+        end
+
         result = find_columns(  instance, vn_subgraphs, sn_subgraphs_2, vn_decompo, used_dual_costs; 
-                    solver=pricer, nb_iterations=1, nb_columns=10)
+                    solver=pricer, nb_iterations=1, nb_columns=100)
 
         sub_mappings = result[:mappings]
         for v_subgraph in vn_decompo.subgraphs
             for mapping in sub_mappings[v_subgraph]
-                add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
+                column = add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
                 nb_columns += 1
+                push!(active_columns, column)
+                columns_useless_rounds[column] = 0    
             end
         end
+
+        average_reduced_costs = result[:average_reduced_costs]
 
 
 
@@ -174,8 +218,10 @@ function lower_bound(instance)
 
         time_overall = time()-time_beginning
 
-        @printf("Iter %2d  CG bound: %10.3f  lower bound: %10.3f  %5d column  time: %5.2fs \n",
-                    nb_iter, cg_value, lower_bound, nb_columns, time_overall)
+        nb_active_columns = length(active_columns)
+
+        @printf("Iter %2d  CG bound: %10.3f,  lower bound: %10.3f,    nb active columns %5d / %5d,       time: %5.2fs,   average reduced costs %5.2f \n",
+                    nb_iter, cg_value, lower_bound, nb_active_columns, nb_columns, time_overall, average_reduced_costs)
     
 
 
@@ -190,6 +236,11 @@ function lower_bound(instance)
         if nb_columns > nb_columns_milp
             keep_on = false
             reason="Got enough columns"
+        end
+
+        if time_overall > time_max_heuristics
+            keep_on = false
+            reason="Enough time"
         end
 
     end
@@ -223,16 +274,21 @@ function lower_bound(instance)
         for vn_subgraph in vn_decompo.subgraphs
             pricer = pricers_full[vn_subgraph]
 
-            time_limit_pricer = 500
-
+            time_overall = time() - time_beginning
+            time_limit_pricer = time_max_overall - time_overall
+            if time_limit_pricer < 0.1
+                continue
+            end
 
             sub_mapping, true_cost, reduced_cost = update_solve_pricer(instance, vn_decompo, pricer, used_dual_costs; time_limit = time_limit_pricer)
 
             
             if (!isnothing(sub_mapping)) && reduced_cost < -0.0001
                 has_found_new_column = true
-                add_column(master_problem, instance, vn_subgraph, sub_mapping, true_cost)
+                column = add_column(master_problem, instance, vn_subgraph, sub_mapping, true_cost)
                 nb_columns += 1
+                push!(active_columns, column)
+                columns_useless_rounds[column] = 0    
             end
             
             if isnothing(sub_mapping)
@@ -246,8 +302,9 @@ function lower_bound(instance)
 
         end
 
+        time_left = time_max_overall - (time() - time_beginning)
         current_lower_bound = (1-alpha_colge) * cg_value + (alpha_colge) * old_cg_value + sum_pricers_values
-        if current_lower_bound > lower_bound
+        if current_lower_bound > lower_bound && time_left > 0.5 # If there is no time left, it means that the pricer was not exact. (well, I could also do this by checking if it was optimal, but i'm too lazy.)
             lower_bound = current_lower_bound
         end
 
@@ -263,16 +320,23 @@ function lower_bound(instance)
         time_overall = time()-time_beginning
         average_obj = sum_pricers_values/length(vn_decompo.subgraphs)
 
-        @printf("Iter %2d  CG bound: %10.3f  lower bound: %10.3f  %5d column  time: %5.2fs  average reduced cost: %10.3f \n",
-            nb_iter, cg_value, lower_bound, nb_columns, time_overall, average_obj)
+        nb_active_columns = length(active_columns)
+
+        @printf("Iter %2d  CG bound: %10.3f,  lower bound: %10.3f,    nb active columns %5d / %5d,       time: %5.2fs,   average reduced costs %5.2f \n",
+                    nb_iter, cg_value, lower_bound, nb_active_columns, nb_columns, time_overall, average_obj)
 
 
-        keep_on = true
+
         if !has_found_new_column
             keep_on = false
             reason="no improving columns"
         end
 
+
+        if time_left < 0.5
+            keep_on = false
+            reason="time limit"
+        end
 
     end
 
@@ -287,11 +351,13 @@ function lower_bound(instance)
     
     # ======= GETTING A SOLUTION ======= #
     
+    time_overall = time() - time_beginning
 
-    result = Dict()
-    result["solving_time"] = time() - time_beginning
-
-    return result
+    return (lower_bound = lower_bound,
+            rmp_value=cg_value, 
+            time_solving = time_overall, 
+            nb_iter = nb_iter, 
+            nb_columns = nb_columns)
 end
 
 
@@ -308,6 +374,8 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
     s_network = instance.s_network
     iter = 1
     columns_found = 0
+    overall_reduced_costs = 0
+
     mappings_per_subgraph = Dict()
     for v_subgraph in vn_subgraphs
         mappings_per_subgraph[v_subgraph] = []
@@ -316,7 +384,6 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
     while columns_found < nb_columns && iter <= nb_iterations
 
         # Associate subvn to a random subsn
-        used_sub_s_network = []
         assignment_virtual_substrate_subgraphs = Dict()
         available_s_subgraphs = collect(1:length(sn_subgraphs))
         for v_subgraph in vn_subgraphs
@@ -347,9 +414,11 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
             
             sub_instance = Instance(v_subgraph.graph, s_subgraph.graph)
             
-            # Additional cost thing
+            # Additional routing cost thing - i'm using the functions that also do the routing things, 
+            # because overwise I would need to maintain twice as much as code. It's better to put a penalty of 0 everywhere.
+            # Call me lazy; I will take it as a compliment.
             additional_costs_routing = []
-            for v_node in vertices(v_subgraph.graph)
+            for _ in vertices(v_subgraph.graph)
                 current_addition_costs = zeros(nv(s_subgraph.graph))    
                 push!(additional_costs_routing, current_addition_costs)
             end
@@ -360,10 +429,12 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
                 result = solve_local_search_pricer_subsn_routing(v_subgraph, s_subgraph, sub_instance, instance, vn_decompo, dual_costs, additional_costs_routing, nb_iterations=1000)
                 sub_mapping = result[:sub_mapping]
                 cost = result[:real_cost]
+                reduced_cost = result[:reduced_cost]
             elseif solver == "milp"
                 result = solve_pricer_milp_routing(v_subgraph, s_subgraph, instance, vn_decompo, additional_costs_routing, dual_costs; time_solver = 60)
                 sub_mapping = result[:sub_mapping]
                 cost = result[:real_cost]
+                reduced_cost = result[:reduced_cost]
             else
                 println("Pricer unknown???")
                 return
@@ -376,14 +447,16 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
         
             push!(mappings_per_subgraph[v_subgraph], sub_mapping)
             columns_found += 1
+            overall_reduced_costs += reduced_cost
             
         end
 
         iter += 1
     end
 
+    average_reduced_costs = overall_reduced_costs / (columns_found + 10e-6)
     return (    mappings=mappings_per_subgraph, 
-                average_dual_costs=average_dual_costs
+        average_reduced_costs=average_reduced_costs
     )    
 
 
