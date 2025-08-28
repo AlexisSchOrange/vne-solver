@@ -20,7 +20,7 @@ includet("pricers/local-search-pricer-subsn-routing.jl")
 includet("pricers/milp-pricer.jl")
 
 
-function lower_bound(instance)
+function lower_bound(instance; nb_virtual_subgraph=0)
     
     
     println("Starting...")  
@@ -46,8 +46,10 @@ function lower_bound(instance)
 
 
     # ======= SETTING UP THE DECOMPOSITION ======= #
-    nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
-    v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph, max_umbalance=1.2)
+    if nb_virtual_subgraph == 0
+        nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
+    end
+        v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph, max_umbalance=1.2)
     vn_decompo = set_up_decompo(instance, v_node_partitionning)
     vn_subgraphs = vn_decompo.subgraphs
 
