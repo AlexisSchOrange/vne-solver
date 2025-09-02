@@ -496,9 +496,12 @@ function complete_clusters(original_clusters, s_network; nb_nodes_to_have = 30)
 
         nb_nodes_with_capacity=0
         for s_node in cluster
+            #=
             if s_network[s_node][:cap] >= 1
                 nb_nodes_with_capacity+=1
             end
+            =#
+            nb_nodes_with_capacity+=1
         end
 
         while nb_nodes_with_capacity < nb_nodes_to_have
@@ -507,9 +510,12 @@ function complete_clusters(original_clusters, s_network; nb_nodes_to_have = 30)
             ranking = sort(collect(keys(all_neighbors)), by = x->all_neighbors[x], rev=true)
             # add the most connected neighbor
             new_s_node = ranking[1]
+            #=
             if s_network[new_s_node][:cap] >= 1
                 nb_nodes_with_capacity+=1
             end
+            =#
+            nb_nodes_with_capacity+=1
             push!(cluster, new_s_node)
             push!(added, new_s_node)
             delete!(all_neighbors, new_s_node)

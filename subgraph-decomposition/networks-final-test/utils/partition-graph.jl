@@ -15,7 +15,7 @@ function partition_graph(graph, nb_clusters; max_umbalance=1.25)
     clusters = partition_graph_kahip(graph, nb_clusters, inbalance=max_umbalance-1)
 
     moyenne = mean([length(cluster) for cluster in clusters])
-    current_imb = maximum([length(cluster) / moyenne for cluster in clusters])
+    current_imb = maximum([length(cluster) / moyenne for cluster in clusters] ∪ [moyenne / length(cluster) for cluster in clusters] )
 
     if current_imb < max_umbalance
         println("Best partition found has imbalance of $current_imb.")
@@ -31,8 +31,9 @@ function partition_graph(graph, nb_clusters; max_umbalance=1.25)
     keep_on=true
     clusters = []
     i_iter = 0
+    imbalanced_allowed = max_umbalance
     while keep_on
-        partition = partition_metis(graph, nb_clusters, max_umbalance)
+        partition = partition_metis(graph, nb_clusters, imbalanced_allowed)
 
         clusters = [Vector{Int64}() for i in 1:nb_clusters]
         for s_node in vertices(graph)
@@ -40,17 +41,18 @@ function partition_graph(graph, nb_clusters; max_umbalance=1.25)
         end
 
         moyenne = mean([length(cluster) for cluster in clusters])
-        current_imb = maximum([length(cluster) / moyenne for cluster in clusters])
+        current_imb = maximum([length(cluster) / moyenne for cluster in clusters] ∪ [moyenne / length(cluster) for cluster in clusters] )
 
+        #println("Right now, current imb: $current_imb... Should be less than $max_umbalance right?")
         if current_imb < max_umbalance
             println("Best partition found has imbalance of $current_imb.")
             return clusters
         end
 
-        max_umbalance = (1+max_umbalance)/2
+        imbalanced_allowed = (1+imbalanced_allowed)/2
 
         i_iter += 1
-        if i_iter > 5
+        if i_iter > 20
             println("Well, couldn't find a good, balanced mapping... Current one: $current_imb")
             return clusters
         end
