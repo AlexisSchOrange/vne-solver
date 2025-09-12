@@ -178,7 +178,7 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
 end
 
 
-function solve_compact_ffplus_linear(instance; time_solver = 30, stay_silent=true, linear=false)
+function solve_compact_ffplus_linear(instance; time_solver = 1000, stay_silent=true)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir

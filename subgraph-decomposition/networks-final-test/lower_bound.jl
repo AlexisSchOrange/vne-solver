@@ -40,7 +40,7 @@ function lower_bound(instance; nb_virtual_subgraph=0)
     alpha_colge=0.9
     nb_columns_to_add_init = 300
     nb_columns_local_search = 500
-    nb_columns_milp = 1500
+    nb_columns_milp = 2500
     time_max_heuristics = 1200
     time_max_overall = 3600
 
@@ -240,13 +240,18 @@ function lower_bound(instance; nb_virtual_subgraph=0)
             reason="Got enough columns"
         end
 
+        if average_reduced_costs > -2.5
+            keep_on = false
+            reason="Columns are not that interesting!"
+        end
+
         if time_overall > time_max_heuristics
             keep_on = false
             reason="Enough time"
         end
 
     end
-    println("\n Step 2 finished, reason: $reason.")
+    println("\n\n Step 2 finished, reason: $reason. \n\n\n")
     
 
     
