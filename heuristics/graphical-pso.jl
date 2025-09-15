@@ -1,9 +1,16 @@
-using Random
 using Graphs, MetaGraphsNext
+using Statistics
+using  NetworkLayout
+
 
 includet("../utils/import_utils.jl")
 
-function solve_local_search(instance; nb_particle=1, nb_local_search = 500)
+
+
+
+
+function graphical_pso(instance)
+
 
 
 
@@ -85,31 +92,20 @@ function solve_local_search(instance; nb_particle=1, nb_local_search = 500)
 
 
 
-    function complete_partial_placement(partial_placement)
+    function construct_placement(pos)
 
-        #println("Partial placement : $partial_placement")
+
+        # get closest substrate node to the pos:
+        distances = [sqrt((pos[1]-x)^2 + (pos[2]-y)^2) for (x,y) in coords_s_nodes]
+        central_s_node = argmin(distances)
+
+        # Useful lists!
+        placement = zeros(Int, nv(v_network))
+        placement[most_central_v_node] = central_s_node
+
         already_placed_v_nodes = Int[]
-        for v_node in 1:nv(v_network)
-            if partial_placement[v_node] != 0
-                push!(already_placed_v_nodes, v_node)
-            end
-        end
+        push!(already_placed_v_nodes, most_central_v_node)
 
-        placement = copy(partial_placement)
-
-        # Extreme case where no nodes are kept: we start from a random node again
-        if isempty(already_placed_v_nodes)
-            keep_on = true
-            while keep_on 
-                s_node = rand(1:nv(s_network))
-                v_node = rand(1:nv(v_network))
-                if node_capacities[s_node] >= 1
-                    placement[v_node] = s_node
-                    push!(already_placed_v_nodes, v_node)
-                    keep_on = false
-                end
-            end
-        end
 
         next_v_nodes = Int[]
         for v_node in already_placed_v_nodes
@@ -123,7 +119,6 @@ function solve_local_search(instance; nb_particle=1, nb_local_search = 500)
         while !isempty(next_v_nodes)
 
             # Take a node of the list
-            shuffle!(next_v_nodes)
             v_node = popfirst!(next_v_nodes)
 
             # Get neighbors already placed
@@ -148,13 +143,13 @@ function solve_local_search(instance; nb_particle=1, nb_local_search = 500)
             distances = [ sum(shortest_paths.dists[s_src, s_node] for s_src in placement_neighbors) for s_node in some_s_nodes]
             distances_norm = (distances .- minimum(distances)) ./ (maximum(distances) - minimum(distances) + 1e-9)
 
-            capacities = [ s_node_scores[s_node] for s_node in some_s_nodes]
-            capacities_norm = (capacities .- minimum(capacities)) ./ (maximum(capacities) - minimum(capacities) + 1e-9)
+            #capacities = [ s_node_scores[s_node] for s_node in some_s_nodes]
+            #capacities_norm = (capacities .- minimum(capacities)) ./ (maximum(capacities) - minimum(capacities) + 1e-9)
 
             costs = [ node_costs[s_node] for s_node in some_s_nodes]
             costs_norm = (costs .- minimum(costs)) ./ (maximum(costs) - minimum(costs) + 1e-9)
 
-            final_scores = 1. .* distances_norm .+ 0.5 .* costs_norm .+ 0.5 .* ( 1 .-capacities_norm)
+            final_scores = 1. .* distances_norm .+ 0.5 .* costs_norm #.+ 0.5 .* ( 1 .-capacities_norm)
 
             selected_idx = argmin(final_scores)
             s_node_selected = some_s_nodes[selected_idx]
@@ -183,6 +178,11 @@ function solve_local_search(instance; nb_particle=1, nb_local_search = 500)
 
 
 
+
+    println("FINEEEEE, let's do the graphical thing.")
+    time_beginning = time()
+
+    
     time_beginning = time()
 
     v_network = instance.v_network
@@ -199,9 +199,7 @@ function solve_local_search(instance; nb_particle=1, nb_local_search = 500)
     end
     if nodes_with_caps < nv(v_network)
         println("What the hell? Not enough capacited nodes...")
-        return Dict("mapping"=>nothing, 
-                    "mapping_cost"=>10e9
-        )
+        return 10e9
     end
 
         
@@ -225,11 +223,12 @@ function solve_local_search(instance; nb_particle=1, nb_local_search = 500)
         push!( neighbors_vn_memory, neighbors(v_network, v_node))
     end
 
-    # Greedy score based on capacities for nodes
+    # Greedy score based on capacities for nodes: not for now.
+    #=
     s_node_scores = [ node_capacities[s_node]  * 
                         sum(capacities_edges[(s_node,s_neighbor)] for s_neighbor in neighbors_sn_memory[s_node]) 
                     for s_node in vertices(s_network)]
-
+    =#
 
     # shortest path of the substrate network
     distmx = zeros(Int, nv(s_network), nv(s_network))
@@ -243,84 +242,127 @@ function solve_local_search(instance; nb_particle=1, nb_local_search = 500)
     most_central_v_node = argmin(closeness_centrality(v_network))
 
 
-    # Loops related things
-    best_cost = 10e9
-    best_placement = zeros(nv(v_network))
-    placement_particles = []
-    cost_particles = []
-    
-    
+    # Algos for layout: stress, spring, 
+    coords_s_nodes = stress(instance.s_network; iterations=500)
+    coords_s_nodes = normalize_coords(coords_s_nodes)
+
+    pos_particles = []
+    vel_particles = []
+    best_pos_particles = []
+    best_cost_particles = []
+
+    history_pos = []
+
+    best_pos_overall = (0., 0.)
+    best_cost_overall = 10e9
+
+    nb_particle = 25
+    nb_iter = 5000
+
+    # initialization
     for particle in 1:nb_particle
-        
-        # Construct initial mapping
-        s_node = rand(1:nv(s_network))
 
-        placement = zeros(Int32, nv(v_network))
-        placement[most_central_v_node] = s_node
+        # put a random position
+        pos = (rand()*2-1, rand()*2-1)
+        vel = ((rand()*2-1)*0.15, (rand()*2-1)*0.15)
 
-        placement, placement_cost = complete_partial_placement(placement) 
-        routing, routing_cost = shortest_path_routing(placement)
-    
-        particle_best_cost = placement_cost + routing_cost
-        particle_best_placement = placement
+        node_placement, placement_cost = construct_placement(pos)
+        edge_routing, routing_cost = shortest_path_routing(node_placement)
 
-
-        # Do a number of (hopefully) improving iterations
-        for step in 1:nb_local_search
-            placement = copy(particle_best_placement)
-            
-            # delete some random star in the virtual network
-            some_v_node = rand(1:nv(v_network))
-            v_nodes_deleted = [some_v_node]
-            for v_neighbor in neighbors_vn_memory[some_v_node] 
-                push!(v_nodes_deleted, v_neighbor)
-            end
-
-            for v_node in v_nodes_deleted
-                placement[v_node] = 0
-            end
-
-
-
-            # reconstruct
-            placement, placement_cost = complete_partial_placement(placement) 
-            routing, routing_cost = shortest_path_routing(placement)
-
-            current_cost = placement_cost + routing_cost
-            if current_cost < particle_best_cost
-                particle_best_cost = current_cost
-                particle_best_placement = placement
-                println("New best! $current_cost, at iter $step")
-            end
+        total_cost = placement_cost + routing_cost
+        if total_cost < best_cost_overall
+            best_pos_overall = pos
+            best_cost_overall = total_cost
         end
 
-        push!(placement_particles, particle_best_placement)
-        push!(cost_particles, particle_best_cost)
+        push!(pos_particles, pos)
+        push!(vel_particles, vel)    
+        
+        push!(best_pos_particles, pos)
+        push!(best_cost_particles, total_cost)
+
+        push!(history_pos, [pos])
+    end
+
+    println("Best after init: $best_cost_overall")
+
+    for iter in 1:nb_iter
+
+        for particle in 1:nb_particle
+
+            current_vel = vel_particles[particle]
+            current_pos = pos_particles[particle]
+            
+            new_vel =   0.7 .* current_vel .+ 
+                        1.5 * rand() .* (best_pos_particles[particle] .- current_pos) .+ 
+                        1.5 * rand() .* (best_pos_overall .- current_pos);
+            
+            new_vel = clamp.(new_vel, -0.10, 0.10)
+
+            new_pos = new_vel .+ current_pos
+            new_pos = clamp.(new_pos, -1, 1.)
+
+            node_placement, placement_cost = construct_placement(new_pos)
+            edge_routing, routing_cost = shortest_path_routing(node_placement)
+    
+            total_cost = placement_cost + routing_cost
+            if total_cost < best_cost_particles[particle]
+                best_pos_particles[particle] = new_pos
+                best_cost_particles[particle] = total_cost
+            end
+            if total_cost <= best_cost_overall
+                best_pos_overall = new_pos
+                best_cost_overall = total_cost
+                println("New best found! $best_cost_overall, at iter $iter")
+            end
+    
+            pos_particles[particle] = new_pos
+            vel_particles[particle] = new_vel
+            
+            push!(history_pos[particle], new_pos)
+
+        end
+
     end
 
 
-    if minimum(cost_particles)>10e6
-        return Dict("mapping"=>nothing,
-                    "mapping_cost"=>10e9
-        )
-    end
+    print_history_pos(history_pos, nb_particle, nb_iter)
 
-    best_particle = argmin(cost_particles)
-    best_placement = placement_particles[best_particle]
+    println("Final best cost: $best_cost_overall, took me $(time() - time_beginning)")
 
-    routing, routing_cost= shortest_path_routing(best_placement, true)
-    final_mapping = Mapping(v_network, s_network, best_placement, routing)
-
-    println("Find the solution in $(time()-time_beginning)")
-    return (mapping = final_mapping,
-        mapping_cost = minimum(cost_particles))
+    return best_cost_overall
 end
 
 
-# Todo
-# Change deepcopies to copies
-# Specify types!
-# I think neighbors doesnt change anything.
-# also, you need to make sure that when no solution are found, we make a new init!
-# Finally, more local search and less exploration. Like 10 and 100 should be better than 25 and 25.
-# Objective: get 0.05s by submapping. No more!
+
+function normalize_coords(coords)
+    xs = [c[1] for c in coords]
+    ys = [c[2] for c in coords]
+    xmin, xmax = minimum(xs), maximum(xs)
+    ymin, ymax = minimum(ys), maximum(ys)
+
+    return [(2*(x - xmin)/(xmax - xmin) - 1,
+             2*(y - ymin)/(ymax - ymin) - 1) for (x,y) in coords]
+end
+
+
+function print_history_pos(history_pos, nb_particle, nb_iter)
+
+    #=
+    for particle in 1:nb_particle
+
+        println("For particle $particle:")
+        for pos in history_pos[particle]
+            println("( $(round(pos[1], digits=3)), $(round(pos[2], digits=3)))")
+        end
+
+    end
+    =#
+    println("End position:")
+    for particle in 1:nb_particle
+        pos = history_pos[particle][nb_iter]
+        println("( $(round(pos[1], digits=3)), $(round(pos[2], digits=3)))")
+    end
+
+end
+

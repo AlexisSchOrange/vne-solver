@@ -240,7 +240,7 @@ function lower_bound(instance; nb_virtual_subgraph=0)
             reason="Got enough columns"
         end
 
-        if average_reduced_costs > -2.5
+        if average_reduced_costs > -2.5 && nb_columns > 1000
             keep_on = false
             reason="Columns are not that interesting!"
         end

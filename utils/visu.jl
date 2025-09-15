@@ -77,7 +77,7 @@ function write_single_partitionning(g, nodes)
         names=string.(1:nv(g)),
         markercolor=marker_cols,
         curvature_scalar=0.01, 
-        node_size=0.2)
+        node_size=0.1)
     savefig(p, "") 
 
 end
@@ -153,3 +153,15 @@ function visu_partitionning_fixed(g, partitionning)
         node_size = 2.)
 end
 
+
+function visu_pos(g, pos)
+
+    x = [pos[i][1] for i in 1:nv(g)]
+    y = [pos[i][2] for i in 1:nv(g)]
+
+    graphplot(g, 
+        x=x,
+        y=y,
+        node_shape=:circle, 
+        node_size = 1)
+end
