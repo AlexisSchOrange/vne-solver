@@ -21,7 +21,7 @@ includet("end-heuristic/local-search-exact.jl")
 
 
 
-function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_columns_max=300, time_end_milp=30)
+function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_columns_max=300, time_end_milp=30, alpha_colge=0.5)
 
     # === SOME USEFUL THINGS === #
     v_network = instance.v_network
@@ -31,10 +31,9 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
     println("Starting...")
     time_beginning = time()
     nb_columns = 0
-
+    nb_columns_already_found=0
 
     # === SOME PARAMETERS === #
-    alpha_colge=0.5
     nb_columns_init = min(nb_columns_max, 100)
 
 
@@ -101,6 +100,9 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
         for mapping in sub_mappings[v_subgraph]
             add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
             nb_columns += 1
+            if !check_if_column_new(master_problem, mapping, v_subgraph)
+                nb_columns_already_found += 1
+            end
         end
     end
 
@@ -133,6 +135,9 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
             for mapping in sub_mappings[v_subgraph]
                 add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
                 nb_columns += 1
+                if !check_if_column_new(master_problem, mapping, v_subgraph)
+                    nb_columns_already_found += 1
+                end
             end
         end
 
@@ -166,7 +171,9 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
     #local_search_changin(instance, cg_heuristic_solution, 300)
 
     return (mapping_cost=value_cg_heuristic,
-        mapping = nothing  )
+        mapping = nothing,
+        column_overall = nb_columns,
+        columns_repetitive = nb_columns_already_found )
 end
 
 
