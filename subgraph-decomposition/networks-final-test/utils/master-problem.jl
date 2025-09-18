@@ -402,6 +402,7 @@ end
 
 function check_if_column_new(master_problem, submapping, subgraph)
 
+    #   println("This placement: $(submapping.node_placement)")
     for existing_column in master_problem.columns[subgraph]
 
         # check if its the same
@@ -414,7 +415,7 @@ function check_if_column_new(master_problem, submapping, subgraph)
         end
     end
 
-    println("The column is new!")
+    #println("The column is new!")
     return true
 
 end

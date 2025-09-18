@@ -133,11 +133,11 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
         sub_mappings = result[:mappings]
         for v_subgraph in vn_decompo.subgraphs
             for mapping in sub_mappings[v_subgraph]
-                add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
-                nb_columns += 1
                 if !check_if_column_new(master_problem, mapping, v_subgraph)
                     nb_columns_already_found += 1
                 end
+                add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
+                nb_columns += 1
             end
         end
 
