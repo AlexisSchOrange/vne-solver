@@ -241,7 +241,7 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
             for v_node in vertices(v_subgraph.graph)
                 current_addition_costs = zeros(nv(s_subgraph.graph))
                 original_v_node = v_subgraph.nodes_of_main_graph[v_node]
-                #= AHHHHH NO ROUTING COST PLEASE REMOVE MEEEEE
+                
                 for v_edge in vn_decompo.v_edges_master
                     if src(v_edge) == original_v_node
                         placement_of_dst_node = temporary_placement[dst(v_edge)]
@@ -258,7 +258,7 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
                         end
                     end
                 end
-                =#
+                
     
                 push!(additional_costs_routing, current_addition_costs)
             end

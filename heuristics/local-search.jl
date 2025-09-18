@@ -1,19 +1,20 @@
 using Random
 using Graphs, MetaGraphsNext
+using StatsBase
 
 includet("../utils/import_utils.jl")
 
-function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
+function solve_local_search(instance; nb_local_search = 500)
 
 
 
     function shortest_path_routing(v_node_placement, get_routing=false)
 
-        capacities_edges_copy = deepcopy(capacities_edges)
+        capacities_edges_copy = copy(capacities_edges)
         s_network_copy_dir_copy_ofgraph = nothing
         is_still_original_s_network = true
 
-        edge_routing = Dict()
+        edge_routing = Dict{Edge, Path}()
         overall_routing_costs = 0
 
         for v_edge in edges(v_network)
@@ -21,7 +22,7 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
             s_src = v_node_placement[src(v_edge)]
             s_dst = v_node_placement[dst(v_edge)]
 
-            nodes_of_path = []
+            nodes_of_path = Int[]
             cost_of_routing_current_edge = 0
 
             # Get the shortest path
@@ -69,7 +70,7 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
             # Sometime it is necessary to get the actual routing, but not all the time. 
             # Since it takes some time to retrieve the edges, due to poor design choices, I only do it when necessary.
             if get_routing
-                edges_of_path = []
+                edges_of_path = Edge[]
                 for i_node in 1:length(nodes_of_path)-1
                     current_src = nodes_of_path[i_node]
                     current_dst = nodes_of_path[i_node+1]
@@ -85,40 +86,25 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
 
 
 
-    function complete_partial_placement(partial_placement)
+    function complete_partial_placement(partial_placement; nb_nodes_to_try=10)
+
+        placement = copy(partial_placement)
 
         #println("Partial placement : $partial_placement")
-        already_placed_v_nodes = []
-        for v_node in 1:nv(v_network)
-            if partial_placement[v_node] != 0
-                push!(already_placed_v_nodes, v_node)
-            end
-        end
-
-        placement = deepcopy(partial_placement)
+        already_placed_v_nodes = filter(v_node -> placement[v_node] != 0, vertices(v_network))
 
         # Extreme case where no nodes are kept: we start from a random node again
         if isempty(already_placed_v_nodes)
-            keep_on = true
-            while keep_on 
-                s_node = rand(1:nv(s_network))
-                v_node = rand(1:nv(v_network))
-                if node_capacities[s_node] >= 1
-                    placement[v_node] = s_node
-                    push!(already_placed_v_nodes, v_node)
-                    keep_on = false
-                end
-            end
+            placement[most_central_v_node] = rand(capacited_nodes)
+            push!(already_placed_v_nodes, most_central_v_node)
         end
 
-        next_v_nodes = []
-        for v_node in already_placed_v_nodes
-            for v_neighbor in neighbors(v_network, v_node)
-                if v_neighbor ∉ next_v_nodes && v_neighbor ∉ already_placed_v_nodes
-                    push!(next_v_nodes, v_neighbor)
-                end
-            end
-        end
+        next_v_nodes = setdiff(
+            union([neighbors(v_network, v) for v in already_placed_v_nodes]...),
+            already_placed_v_nodes,
+        )
+
+        possible_s_nodes = filter(s_node -> s_node ∉ placement, capacited_nodes)
 
         while !isempty(next_v_nodes)
 
@@ -127,24 +113,14 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
             v_node = popfirst!(next_v_nodes)
 
             # Get neighbors already placed
-            placement_neighbors = []
-            for v_neighbor in neighbors(v_network, v_node)
-                if v_neighbor ∈ already_placed_v_nodes
-                    push!(placement_neighbors, placement[v_neighbor])
-                end
-            end
+            placement_neighbors = [placement[s_neigh] for s_neigh in filter(v_neighbor -> placement[v_neighbor] != 0, neighbors(v_network, v_node))]
 
             # Choose 10 random nodes (or less if the network is not that big)
-            number_s_nodes = min(floor(nv(s_network)/5), 10)
-            some_s_nodes = []
-            while length(some_s_nodes) < number_s_nodes
-                s_node = rand(1:nv(s_network))
-                if (node_capacities[s_node] >= 1) && (s_node ∉ placement)
-                    push!(some_s_nodes, s_node)
-                end
-            end
+            number_s_nodes = min(length(possible_s_nodes), nb_nodes_to_try)
+            some_s_nodes = sample(possible_s_nodes, number_s_nodes; replace=false)
 
-            # Rank them according distance to already placed nodes and capacity
+
+            # NODE RANKING AND SELECTION
             distances = [ sum(shortest_paths.dists[s_src, s_node] for s_src in placement_neighbors) for s_node in some_s_nodes]
             distances_norm = (distances .- minimum(distances)) ./ (maximum(distances) - minimum(distances) + 1e-9)
 
@@ -154,8 +130,7 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
             costs = [ node_costs[s_node] for s_node in some_s_nodes]
             costs_norm = (costs .- minimum(costs)) ./ (maximum(costs) - minimum(costs) + 1e-9)
 
-            final_scores = 1. .* distances_norm .+ 0.5 .* costs_norm .+ 0.5 .* ( 1 .-capacities_norm) + 0.5 * rand(length(some_s_nodes))
-
+            final_scores = 5. .* distances_norm .+ 1. .* costs_norm .+ 2. .* ( 1 .-capacities_norm)
             selected_idx = argmin(final_scores)
             s_node_selected = some_s_nodes[selected_idx]
 
@@ -163,12 +138,8 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
             # Finish the work
             placement[v_node] = s_node_selected
             push!(already_placed_v_nodes, v_node)
-            for v_neighbor in neighbors(v_network, v_node)
-                if v_neighbor ∉ already_placed_v_nodes && v_neighbor ∉ next_v_nodes 
-                    push!(next_v_nodes, v_neighbor)
-                end
-            end
-
+            next_v_nodes = next_v_nodes ∪ filter(v_neighbor->v_neighbor ∉ already_placed_v_nodes, neighbors(v_network, v_node) )
+            possible_s_nodes = filter(!=(s_node_selected), possible_s_nodes)
         end
 
         placement_cost = 0
@@ -177,7 +148,6 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
         end
 
         return placement, placement_cost
-
 
     end
 
@@ -190,19 +160,6 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
     s_network_dir = instance.s_network_dir
 
 
-    #---- Make sure there are enough capacited nodes
-    nodes_with_caps = 0
-    for s_node in vertices(s_network)
-        if s_network[s_node][:cap] >= 1
-            nodes_with_caps += 1
-        end
-    end
-    if nodes_with_caps < nv(v_network)
-        println("What the hell? Not enough capacited nodes...")
-        return Dict("mapping"=>nothing, 
-                    "mapping_cost"=>10e9
-        )
-    end
 
         
     #---- Usefull things
@@ -215,9 +172,22 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
         capacities_edges[(dst(s_edge),src(s_edge))] = cap
     end
 
+
+
+
+    #---- Make sure there are enough capacited nodes
+    capacited_nodes = [s_node for s_node in vertices(s_network) if node_capacities[s_node] ≥ 1]
+
+    if length(capacited_nodes) < nv(v_network)
+        println("What the hell? Not enough capacited nodes...")
+        return  (mapping=nothing, 
+                mapping_cost=10e9
+        )
+    end
+    
     # Greedy score based on capacities for nodes
     s_node_scores = [ node_capacities[s_node]  * 
-                        sum(capacities_edges[(s_node,s_neighbor)] for s_neighbor in neighbors(s_network, s_node)) 
+                        sum(capacities_edges[(s_node,s_neighbor)] for s_neighbor in neighbors(s_network, s_node) ) 
                     for s_node in vertices(s_network)]
 
 
@@ -229,86 +199,73 @@ function solve_local_search(instance; nb_particle=25, nb_local_search = 50)
     shortest_paths = floyd_warshall_shortest_paths(s_network_dir, distmx)
 
 
+
+    
+
     # Getting the most central virtual node
     most_central_v_node = argmin(closeness_centrality(v_network))
 
 
     # Loops related things
-    best_cost = 10e9
     best_placement = zeros(nv(v_network))
-    placement_particles = []
-    cost_particles = []
     
-    
-    for particle in 1:nb_particle
         
-        # Construct initial mapping
-        s_node = rand(1:nv(s_network))
+    # Construct initial mapping
+    s_node = argmin(closeness_centrality(s_network)) # WAIT! Might not be possible if no capacities...
 
-        placement = zeros(Int32, nv(v_network))
-        placement[most_central_v_node] = s_node
+    placement = zeros(Int32, nv(v_network))
+    placement[most_central_v_node] = s_node
 
-        placement, placement_cost = complete_partial_placement(placement) 
-        routing, routing_cost = shortest_path_routing(placement)
+    placement, placement_cost = complete_partial_placement(placement; nb_nodes_to_try=length(capacited_nodes)) 
+    routing, routing_cost = shortest_path_routing(placement)
+
+    best_cost = placement_cost + routing_cost
+    best_placement = placement
+
+    println("Before Local Search, we have solution of $best_cost !")
     
-        particle_best_cost = placement_cost + routing_cost
-        particle_best_placement = placement
-
-
-        # Do a number of (hopefully) improving iterations
-        for step in 1:nb_local_search
-            placement = deepcopy(particle_best_placement)
-            
-            # delete some random star in the virtual network
-            some_v_node = rand(1:nv(v_network))
-            v_nodes_deleted = [some_v_node]
-            for v_neighbor in neighbors(v_network, some_v_node) 
-                push!(v_nodes_deleted, v_neighbor)
-            end
-            for v_node in v_nodes_deleted
-                placement[v_node] = 0
-            end
-
-            #= delete some number of nodes
-            nb_nodes_to_delete = 5
-            some_v_node = rand(1:nv(v_network))
-            v_nodes_deleted = [some_v_node]
-            neighbors = neighbors(v_network, some_v_node) 
-            while length(v_nodes_deleted) > nb_nodes_to_delete
-
-            end
-            =#  
-
-            # reconstruct
-            placement, placement_cost = complete_partial_placement(placement) 
-            routing, routing_cost = shortest_path_routing(placement)
-    
-
-            current_cost = placement_cost + routing_cost
-            if current_cost < particle_best_cost
-                particle_best_cost = current_cost
-                particle_best_placement = placement
-            end
+    # Do a number of improving iterations
+    for step in 1:nb_local_search
+        placement = copy(best_placement)
+        
+        # delete some random star in the virtual network
+        some_v_node = rand(1:nv(v_network))
+        v_nodes_deleted = [some_v_node]
+        for v_neighbor in neighbors(v_network, some_v_node) 
+            push!(v_nodes_deleted, v_neighbor)
         end
 
-        push!(placement_particles, particle_best_placement)
-        push!(cost_particles, particle_best_cost)
+        for v_node in v_nodes_deleted
+            placement[v_node] = 0
+        end
+
+
+
+        # reconstruct
+        placement, placement_cost = complete_partial_placement(placement; nb_nodes_to_try=ceil(Int, length(capacited_nodes)/4)) 
+        routing, routing_cost = shortest_path_routing(placement)
+
+        current_cost = placement_cost + routing_cost
+        if current_cost < best_cost && current_cost < 10e6
+            best_cost = current_cost
+            best_placement = placement
+            println("New best! $current_cost, at iter $step")
+        end
     end
 
 
-    if minimum(cost_particles)>10e6
-        return Dict("mapping"=>nothing,
-                    "mapping_cost"=>10e9
+    if best_cost>10e6
+        return (mapping=nothing,
+                    mapping_cost=10e9
         )
     end
 
-    best_particle = argmin(cost_particles)
-    best_placement = placement_particles[best_particle]
 
     routing, routing_cost= shortest_path_routing(best_placement, true)
     final_mapping = Mapping(v_network, s_network, best_placement, routing)
 
-    return Dict("mapping"=>final_mapping,
-                "mapping_cost"=>(minimum(cost_particles))
-    )
+    println("Find the solution of $best_cost in $(time()-time_beginning)")
+    return (mapping = final_mapping,
+            mapping_cost = best_cost)
 end
+
