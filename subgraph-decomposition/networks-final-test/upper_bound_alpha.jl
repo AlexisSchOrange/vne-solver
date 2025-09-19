@@ -34,7 +34,7 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
     nb_columns_already_found=0
 
     # === SOME PARAMETERS === #
-    nb_columns_init = min(nb_columns_max, 100)
+    nb_columns_init = min(nb_columns_max, 50)
 
 
 
@@ -98,11 +98,12 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
     sub_mappings = result[:mappings]
     for v_subgraph in vn_decompo.subgraphs
         for mapping in sub_mappings[v_subgraph]
-            add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
-            nb_columns += 1
             if !check_if_column_new(master_problem, mapping, v_subgraph)
                 nb_columns_already_found += 1
             end
+
+            add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
+            nb_columns += 1
         end
     end
 
@@ -127,7 +128,7 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
 
         # --- pricers
         current_dual_costs = get_duals(instance, vn_decompo, master_problem)
-        dual_costs_to_use = average_dual_costs(instance, vn_decompo, empty_dual_costs, current_dual_costs, alpha=alpha_colge)
+        dual_costs_to_use = average_dual_costs(instance, vn_decompo, current_dual_costs, empty_dual_costs, alpha=alpha_colge)
         
         result =  find_columns(instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_costs_to_use, shortest_paths, solver=pricer, nb_iterations=1, nb_columns=nb_virtual_subgraph)
         sub_mappings = result[:mappings]
