@@ -165,3 +165,37 @@ function visu_pos(g, pos)
         node_shape=:circle, 
         node_size = 1)
 end
+
+
+
+function visu_particle(s_network, pos_nodes, pos_particles, iter)
+
+    nb_particles = length(pos_particles)
+
+    # Split coordinates
+    x_nodes = [pos_nodes[i][1] for i in 1:nv(s_network)] .* 10
+    y_nodes = [pos_nodes[i][2] for i in 1:nv(s_network)] .* 10
+    x_particles = [pos_particles[i][1] for i in 1:nb_particles] .* 10
+    y_particles = [pos_particles[i][2] for i in 1:nb_particles] .* 10
+
+    # First plot the substrate network
+    plt = graphplot(s_network, 
+        x = x_nodes, 
+        y = y_nodes,
+        node_color = :black,
+        node_shape = :circle,
+        node_size = 1.5
+    )
+
+    # Overlay particles as red squares
+    scatter!(x_particles, y_particles,
+        color = :red,
+        marker = :square,
+        markersize = 2.,
+        label = "Particles"
+    )
+    
+
+    savefig(plt, "sheesh_$iter")
+
+end

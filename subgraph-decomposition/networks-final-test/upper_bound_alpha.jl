@@ -21,7 +21,7 @@ includet("end-heuristic/local-search-exact.jl")
 
 
 
-function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_columns_max=300, time_end_milp=30, alpha_colge=0.5)
+function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_columns_max=300, time_end_milp=30, alpha_colge=0.5, beta_routing = 0.5)
 
     # === SOME USEFUL THINGS === #
     v_network = instance.v_network
@@ -94,7 +94,7 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
     println("STEP 1: INITIALIZATION...")
     time_0=time()
 
-    result = find_columns(instance, vn_subgraphs, sn_subgraphs, vn_decompo, empty_dual_costs, shortest_paths, solver=pricer, nb_iterations=nb_columns_init, nb_columns=nb_columns_init)
+    result = find_columns(instance, vn_subgraphs, sn_subgraphs, vn_decompo, empty_dual_costs, shortest_paths, solver=pricer, nb_iterations=nb_columns_init, nb_columns=nb_columns_init, beta_routing=beta_routing)
     sub_mappings = result[:mappings]
     for v_subgraph in vn_decompo.subgraphs
         for mapping in sub_mappings[v_subgraph]
@@ -130,7 +130,7 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
         current_dual_costs = get_duals(instance, vn_decompo, master_problem)
         dual_costs_to_use = average_dual_costs(instance, vn_decompo, current_dual_costs, empty_dual_costs, alpha=alpha_colge)
         
-        result =  find_columns(instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_costs_to_use, shortest_paths, solver=pricer, nb_iterations=1, nb_columns=nb_virtual_subgraph)
+        result =  find_columns(instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_costs_to_use, shortest_paths, solver=pricer, nb_iterations=1, nb_columns=nb_virtual_subgraph, beta_routing=beta_routing)
         sub_mappings = result[:mappings]
         for v_subgraph in vn_decompo.subgraphs
             for mapping in sub_mappings[v_subgraph]
@@ -184,7 +184,7 @@ end
 
 
 function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_costs, base_shortest_paths; 
-                        solver="milp", nb_iterations=10, nb_columns=50)
+                        solver="milp", nb_iterations=10, nb_columns=50, beta_routing = 0.5)
 
 
     # Useful things
@@ -255,14 +255,14 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
                         placement_of_dst_node = temporary_placement[dst(v_edge)]
                         for s_node in vertices(s_subgraph.graph)
                             original_s_node = s_subgraph.nodes_of_main_graph[s_node]
-                            current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node]
+                            current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node] * beta_routing
                         end
                     end
                     if dst(v_edge) == original_v_node
                         placement_of_dst_node = temporary_placement[src(v_edge)]
                         for s_node in vertices(s_subgraph.graph)
                             original_s_node = s_subgraph.nodes_of_main_graph[s_node]
-                            current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node]
+                            current_addition_costs[s_node] += base_shortest_paths.dists[original_s_node, placement_of_dst_node] * beta_routing
                         end
                     end
                 end

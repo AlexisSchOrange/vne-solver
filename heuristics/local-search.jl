@@ -130,7 +130,7 @@ function solve_local_search(instance; nb_local_search = 500)
             costs = [ node_costs[s_node] for s_node in some_s_nodes]
             costs_norm = (costs .- minimum(costs)) ./ (maximum(costs) - minimum(costs) + 1e-9)
 
-            final_scores = 5. .* distances_norm .+ 1. .* costs_norm .+ 2. .* ( 1 .-capacities_norm)
+            final_scores = 5. .* distances_norm .+ 1. .* costs_norm .+ 0. .* ( 1 .-capacities_norm)
             selected_idx = argmin(final_scores)
             s_node_selected = some_s_nodes[selected_idx]
 
@@ -186,8 +186,7 @@ function solve_local_search(instance; nb_local_search = 500)
     end
     
     # Greedy score based on capacities for nodes
-    s_node_scores = [ node_capacities[s_node]  * 
-                        sum(capacities_edges[(s_node,s_neighbor)] for s_neighbor in neighbors(s_network, s_node) ) 
+    s_node_scores = [ sum(capacities_edges[(s_node,s_neighbor)] + node_capacities[s_neighbor] for s_neighbor in neighbors(s_network, s_node) ) 
                     for s_node in vertices(s_network)]
 
 
@@ -242,7 +241,7 @@ function solve_local_search(instance; nb_local_search = 500)
 
 
         # reconstruct
-        placement, placement_cost = complete_partial_placement(placement; nb_nodes_to_try=ceil(Int, length(capacited_nodes)/4)) 
+        placement, placement_cost = complete_partial_placement(placement; nb_nodes_to_try=ceil(Int, length(capacited_nodes)/3)) 
         routing, routing_cost = shortest_path_routing(placement)
 
         current_cost = placement_cost + routing_cost
@@ -268,4 +267,5 @@ function solve_local_search(instance; nb_local_search = 500)
     return (mapping = final_mapping,
             mapping_cost = best_cost)
 end
+
 

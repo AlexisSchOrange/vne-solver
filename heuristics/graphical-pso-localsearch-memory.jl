@@ -6,11 +6,12 @@ using StatsBase
 
 includet("../utils/import_utils.jl")
 
+includet("../utils/visu.jl")
 
 
 
 
-function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
+function graphical_pso_local_search(instance; nb_particle = 25, nb_iter = 50)
 
 
 
@@ -99,7 +100,7 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
 
         placement = copy(partial_placement)
 
-        #println("Placement beginning : $partial_placement")
+        #println("Partial placement : $partial_placement")
         already_placed_v_nodes = filter(v_node -> placement[v_node] != 0, vertices(v_network))
 
         # Extreme case where no nodes are kept: we start from a random node again
@@ -120,7 +121,7 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
             # Take a node of the list
             shuffle!(next_v_nodes)
             v_node = popfirst!(next_v_nodes)
-            #println("Next node to look at: $v_node !")
+
             # Get neighbors already placed
             placement_neighbors = [placement[s_neigh] for s_neigh in filter(v_neighbor -> placement[v_neighbor] != 0, neighbors(v_network, v_node))]
 
@@ -139,20 +140,17 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
             costs = [ node_costs[s_node] for s_node in some_s_nodes]
             costs_norm = (costs .- minimum(costs)) ./ (maximum(costs) - minimum(costs) + 1e-9)
 
-            final_scores = 5. .* distances_norm .+ 0. .* costs_norm .+ 0. .* ( 1 .-capacities_norm) .+ 0. .* rand(length(some_s_nodes))
+            final_scores = 5. .* distances_norm .+ 0. .* costs_norm .+ 0. .* ( 1 .-capacities_norm)
             selected_idx = argmin(final_scores)
             s_node_selected = some_s_nodes[selected_idx]
 
-            #println("Placed on: $s_node_selected, that has score: $(distances[selected_idx]) !")
+
             # Finish the work
             placement[v_node] = s_node_selected
             push!(already_placed_v_nodes, v_node)
             next_v_nodes = next_v_nodes ∪ filter(v_neighbor->v_neighbor ∉ already_placed_v_nodes, neighbors(v_network, v_node) )
             possible_s_nodes = filter(!=(s_node_selected), possible_s_nodes)
         end
-
-        #println("Placement end : $placement")
-
 
         placement_cost = 0
         for v_node in vertices(v_network)
@@ -161,6 +159,60 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
 
         return placement, placement_cost
 
+    end
+
+
+    
+
+    function local_search(initial_placement, initial_cost; nb_local_search = 50)
+
+        best_placement = initial_placement
+        best_cost = initial_cost
+        #println("Before Local Search, we have solution of $best_cost !")
+        
+        # Do a number of improving iterations
+        for step in 1:nb_local_search
+            placement = copy(best_placement)
+            
+            # delete some random star in the virtual network
+            some_v_node = rand(1:nv(v_network))
+            v_nodes_deleted = [some_v_node]
+            for v_neighbor in neighbors(v_network, some_v_node) 
+                push!(v_nodes_deleted, v_neighbor)
+            end
+
+            for v_node in v_nodes_deleted
+                placement[v_node] = 0
+            end
+
+
+
+            # reconstruct
+            placement, placement_cost = complete_partial_placement(placement; nb_nodes_to_try=ceil(Int, length(capacited_nodes)/3)) 
+            routing, routing_cost = shortest_path_routing(placement)
+
+            current_cost = placement_cost + routing_cost
+            if current_cost < best_cost && current_cost < 10e6
+                best_cost = current_cost
+                best_placement = placement
+                #println("New best! $current_cost, at iter $step")
+            end
+        end
+
+
+        if best_cost>10e6
+            return (mapping=nothing,
+                        mapping_cost=10e9
+            )
+        end
+
+
+        routing, routing_cost= shortest_path_routing(best_placement, true)
+        final_mapping = Mapping(v_network, s_network, best_placement, routing)
+
+        #println("Find the solution of $best_cost in $(time()-time_beginning)")
+        return (mapping = final_mapping,
+                mapping_cost = best_cost)
     end
 
 
@@ -176,6 +228,7 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
 
+    nb_local_search_eachtime = 25
 
 
         
@@ -203,9 +256,9 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
     end
     
     # Greedy score based on capacities for nodes
-    s_node_scores = [ node_capacities[s_node]  * 
-                        sum(capacities_edges[(s_node,s_neighbor)] for s_neighbor in neighbors(s_network, s_node) ) 
+    s_node_scores = [ sum(capacities_edges[(s_node,s_neighbor)] + node_capacities[s_neighbor] for s_neighbor in neighbors(s_network, s_node) ) 
                     for s_node in vertices(s_network)]
+
 
 
     # shortest path of the substrate network
@@ -248,6 +301,17 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
     best_pos_particles = []
     best_cost_particles = []
 
+    # MEMORYYYY
+    best_placement_particle_center = []
+    best_cost_particle_center = []
+    for particle in 1:nb_particle
+        best_pos = [[] for s_node in vertices(s_network)]
+        best_cost = [10e9 for s_node in vertices(s_network)]
+        push!(best_placement_particle_center, best_pos)
+        push!(best_cost_particle_center, best_cost)
+    end
+
+
     history_pos = []
 
     best_pos_overall = (0., 0.)
@@ -278,9 +342,22 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
         total_cost = placement_cost + routing_cost
 
 
+        # --- LOCAL SEARCH TIME --- #
+
+        result = local_search(node_placement, total_cost, nb_local_search = nb_local_search_eachtime)
+
+        total_cost = result[:mapping_cost]
+        final_mapping = result[:mapping]
+        actual_center = final_mapping.node_placement[most_central_v_node]
+
         if total_cost < best_cost_overall
-            best_pos_overall = pos
+            best_pos_overall = coords_s_nodes[actual_center]
             best_cost_overall = total_cost
+        end
+
+        if total_cost < best_cost_particle_center[particle][actual_center]
+            best_placement_particle_center[particle][actual_center] = final_mapping.node_placement
+            best_cost_particle_center[particle][actual_center] = total_cost
         end
 
         push!(pos_particles, pos)
@@ -290,6 +367,12 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
         push!(best_cost_particles, total_cost)
 
         push!(history_pos, [pos])
+
+
+         
+
+
+        
     end
 
     println("Best after init: $best_cost_overall")
@@ -313,22 +396,36 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
             # get closest substrate node to the pos:
             distances = [sqrt((new_pos[1]-x)^2 + (new_pos[2]-y)^2) for (x,y) in coords_s_nodes] # NEED TO CHANGE THIS!!!!! TO CAPACITED NODE ONLY
             central_s_node = argmin(distances)
-            partial_placement = zeros(Int, nv(v_network))
-            partial_placement[most_central_v_node] = central_s_node
-                    
-            node_placement, placement_cost = complete_partial_placement(partial_placement, nb_nodes_to_try=ceil(Int,length(capacited_nodes)))
-
-            edge_routing, routing_cost = shortest_path_routing(node_placement)
+            
+            if best_cost_particle_center[particle][central_s_node] > 10e6
+                #print("I don't know you!")
+                partial_placement = zeros(Int, nv(v_network))
+                partial_placement[most_central_v_node] = central_s_node    
+                node_placement, placement_cost = complete_partial_placement(partial_placement, nb_nodes_to_try=ceil(Int,length(capacited_nodes)))
+                edge_routing, routing_cost = shortest_path_routing(node_placement)
+                total_cost = placement_cost + routing_cost
+            else
+                #print("I already know you!")
+                total_cost = best_cost_particle_center[particle][central_s_node] 
+                node_placement = best_placement_particle_center[particle][central_s_node] 
+            end
     
-            total_cost = placement_cost + routing_cost
 
+            # --- LOCAL SEARCH TIME --- #
 
+            result = local_search(node_placement, total_cost, nb_local_search = nb_local_search_eachtime)
+
+            total_cost = result[:mapping_cost]
+
+            final_mapping = result[:mapping]
+            actual_center = final_mapping.node_placement[most_central_v_node]
+    
             if total_cost < best_cost_particles[particle]
-                best_pos_particles[particle] = coords_s_nodes[central_s_node]
+                best_pos_particles[particle] = coords_s_nodes[actual_center]
                 best_cost_particles[particle] = total_cost
             end
             if total_cost < best_cost_overall
-                best_pos_overall = coords_s_nodes[central_s_node]
+                best_pos_overall = coords_s_nodes[actual_center]
                 best_cost_overall = total_cost
                 println("New best found! $best_cost_overall, at iter $iter")
             end
@@ -338,18 +435,25 @@ function graphical_pso(instance; nb_particle = 25, nb_iter = 50)
             
             push!(history_pos[particle], new_pos)
 
+            if total_cost < best_cost_particle_center[particle][actual_center]
+                best_placement_particle_center[particle][actual_center] = final_mapping.node_placement
+                best_cost_particle_center[particle][actual_center] = total_cost
+            end
+    
         end
 
         #visu_particle(s_network.graph, coords_s_nodes, pos_particles, iter)
 
     end
 
+    #println("Best placement: $best_placement_particle_center")
+    #println("Best cost: $best_cost_particle_center")
 
     #print_history_pos(history_pos, nb_particle, nb_iter)
 
     println("Final best cost: $best_cost_overall, took me $(time() - time_beginning)")
 
-    return (mapping_cost = best_cost_overall)
+    return best_cost_overall
 end
 
 
