@@ -230,7 +230,7 @@ function solve_multi_greedy(instance; number_greedy = 10, time_max = 10)
     best_cost = 10e9
     best_mapping = nothing
     #println("??")
-
+    iter = 1
     while iter < number_greedy && time_overall < time_max
 
         result = solve_greedy(instance)
@@ -240,6 +240,8 @@ function solve_multi_greedy(instance; number_greedy = 10, time_max = 10)
         end
 
         time_overall = time() - time_beginning
+
+        iter += 1
     end
 
     return (mapping=nothing, mapping_cost=best_cost)
