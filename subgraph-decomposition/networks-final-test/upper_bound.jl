@@ -14,6 +14,7 @@ includet("utils/partition-graph.jl")
 # pricers
 includet("pricers/milp-pricer-subsn-routing.jl")
 includet("pricers/local-search-pricer-subsn-routing.jl")
+includet("pricers/greedy-pricer-subsn.jl")
 
 # end heuristics
 includet("end-heuristic/basic-ilp.jl")
@@ -34,7 +35,7 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
 
 
     # === SOME PARAMETERS === #
-    alpha_colge=0.5
+    alpha_colge=0.25
     nb_columns_init = min(nb_columns_max, 50)
 
 
@@ -241,7 +242,6 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
             for v_node in vertices(v_subgraph.graph)
                 current_addition_costs = zeros(nv(s_subgraph.graph))
                 original_v_node = v_subgraph.nodes_of_main_graph[v_node]
-                #= AHHHHH NO ROUTING COST PLEASE REMOVE MEEEEE
                 for v_edge in vn_decompo.v_edges_master
                     if src(v_edge) == original_v_node
                         placement_of_dst_node = temporary_placement[dst(v_edge)]
@@ -258,7 +258,6 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
                         end
                     end
                 end
-                =#
     
                 push!(additional_costs_routing, current_addition_costs)
             end
@@ -271,6 +270,10 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
                 cost = result[:real_cost]
             elseif solver == "milp"
                 result = solve_pricer_milp_routing(v_subgraph, s_subgraph, instance, vn_decompo, additional_costs_routing, dual_costs; time_solver = 60)
+                sub_mapping = result[:sub_mapping]
+                cost = result[:real_cost]
+            elseif solver == "greedy"
+                result = solve_greedy_pricer_subsn(v_subgraph, s_subgraph, sub_instance, instance, vn_decompo, dual_costs, additional_costs_routing, nb_iterations=100)
                 sub_mapping = result[:sub_mapping]
                 cost = result[:real_cost]
             else

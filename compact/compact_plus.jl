@@ -102,7 +102,7 @@ end
 
 
 
-function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, linear=false)
+function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, solution_first = false)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
@@ -118,11 +118,10 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
         print("Starting solving... ")
     end
 
-    if linear
-        relax_integrality(model)
+    if solution_first
+        set_optimizer_attribute(model, "CPXPARAM_Emphasis_MIP", 5)
     end
-    #set_optimizer_attribute(model, "CPXPARAM_Emphasis_MIP", 5)
-
+    
     optimize!(model)
 
     status = primal_status(model)

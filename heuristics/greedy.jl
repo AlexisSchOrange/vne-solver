@@ -1,13 +1,10 @@
 using Random
 using Graphs, MetaGraphsNext
 using StatsBase
+
 includet("../utils/import_utils.jl")
 
-
-
-
-function solve_PSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_things=true)
-
+function solve_greedy(instance)
 
 
 
@@ -89,9 +86,6 @@ function solve_PSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thing
 
 
 
-
-    
-
     function complete_partial_placement(partial_placement; nb_nodes_to_try=10)
 
         placement = copy(partial_placement)
@@ -99,11 +93,6 @@ function solve_PSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thing
         #println("Partial placement : $partial_placement")
         already_placed_v_nodes = filter(v_node -> placement[v_node] != 0, vertices(v_network))
 
-        # Extreme case where no nodes are kept: we start from a random node again
-        if isempty(already_placed_v_nodes)
-            placement[most_central_v_node] = rand(capacited_nodes)
-            push!(already_placed_v_nodes, most_central_v_node)
-        end
 
         next_v_nodes = setdiff(
             union([neighbors(v_network, v) for v in already_placed_v_nodes]...),
@@ -121,7 +110,7 @@ function solve_PSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thing
             # Get neighbors already placed
             placement_neighbors = [placement[s_neigh] for s_neigh in filter(v_neighbor -> placement[v_neighbor] != 0, neighbors(v_network, v_node))]
 
-            # Choose 10 random nodes (or less if the network is not that big)
+            # Choose some random nodes
             number_s_nodes = min(length(possible_s_nodes), nb_nodes_to_try)
             some_s_nodes = sample(possible_s_nodes, number_s_nodes; replace=false)
 
@@ -136,7 +125,7 @@ function solve_PSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thing
             costs = [ node_costs[s_node] for s_node in some_s_nodes]
             costs_norm = (costs .- minimum(costs)) ./ (maximum(costs) - minimum(costs) + 1e-9)
 
-            final_scores = 5. .* distances_norm .+ 0 .* costs_norm .+ 0. .* ( 1 .-capacities_norm)
+            final_scores = 3. .* distances_norm .+ 1. .* costs_norm .+ 0.5 .* ( 1 .-capacities_norm)
             selected_idx = argmin(final_scores)
             s_node_selected = some_s_nodes[selected_idx]
 
@@ -158,68 +147,6 @@ function solve_PSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thing
     end
 
 
-    function minus(pos1, pos2)
-
-        res=[]
-        for i in 1:length(pos1)
-            if pos1[i] == pos2[i]
-                push!(res, 1)
-            else
-                push!(res, 0)
-            end
-        end
-        return res
-    end
-    
-    
-    function plus(vel_inertia, vel_pb, vel_gb)
-    
-        p_inertia = 0.2
-        p_attraction_personal = 0.3
-        p_attraction_global = 0.5
-    
-        new_velocity = []
-        for i in 1:length(vel_inertia)
-            r = rand()
-            if r < p_inertia
-                push!(new_velocity, vel_inertia[i])
-            elseif r < (p_inertia + p_attraction_personal)
-                push!(new_velocity, vel_pb[i])
-            else
-                push!(new_velocity, vel_gb[i])
-            end
-        end
-    
-        return new_velocity
-
-    end
-
-    
-
-    function times(position, velocity)
-
-        new_placement = []
-        placement_cost = 0
-    
-        for i in 1:nv(instance.v_network)
-            if velocity[i] == 1
-                push!(new_placement, position[i])
-                placement_cost += node_costs[position[i]]
-            else
-                push!(new_placement, 0)
-            end
-        end
-
-        final_placement, cost = complete_partial_placement(new_placement, nb_nodes_to_try=length(capacited_nodes))
-    
-    
-        return final_placement, cost
-    end
-    
-
-
-
-
 
     time_beginning = time()
 
@@ -228,6 +155,8 @@ function solve_PSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thing
     s_network_dir = instance.s_network_dir
 
 
+
+        
     #---- Usefull things
     node_capacities = [get_attribute_node(s_network, s_node, :cap) for s_node in vertices(s_network)]
     node_costs = [get_attribute_node(s_network, s_node, :cost) for s_node in vertices(s_network)]
@@ -252,8 +181,7 @@ function solve_PSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thing
     end
     
     # Greedy score based on capacities for nodes
-    s_node_scores = [ node_capacities[s_node]  * 
-                        sum(capacities_edges[(s_node,s_neighbor)] for s_neighbor in neighbors(s_network, s_node) ) 
+    s_node_scores = [ sum(capacities_edges[(s_node,s_neighbor)] + node_capacities[s_neighbor] for s_neighbor in neighbors(s_network, s_node) ) 
                     for s_node in vertices(s_network)]
 
 
@@ -265,112 +193,54 @@ function solve_PSO(instance; nb_particle=25, nb_iter=50, time_max=5, print_thing
     shortest_paths = floyd_warshall_shortest_paths(s_network_dir, distmx)
 
 
-
-    
-
     # Getting the most central virtual node
     most_central_v_node = argmin(closeness_centrality(v_network))
-
-
-
-    # ------ things for the PSO algorithm
-    position = []
-    velocity = []
-
-    personal_best = []
-    personal_best_cost = []
-
-    global_best = nothing
-    global_best_cost = 9999999
-
-    # initialization
-    print_things && print("initialization... ")
-    for particle in 1:nb_particle
-
-        partial_placement = zeros(Int, nv(v_network))
-        partial_placement[most_central_v_node] = rand(capacited_nodes)
-        placement, placement_cost = complete_partial_placement(partial_placement; nb_nodes_to_try=length(capacited_nodes))
-        routing, routing_cost = shortest_path_routing(placement)
-        overall_cost = placement_cost + routing_cost
-
-        push!(position, placement)
-        push!(personal_best, placement)
-        push!(personal_best_cost, overall_cost)
-
-        if overall_cost < global_best_cost
-            global_best = position[particle]
-            global_best_cost = overall_cost
-            print_things && println("We got a new best solution! value $overall_cost")
-        end
-
-        push!(velocity, ones(nv(v_network)))
-    end
-    print_things && println("Initialization done, Starting iterations...")
-
-    # iterations
-    iter = 1
-    time_total = 0
-    while iter < nb_iter && time_total < time_max
-        for particle in 1:nb_particle
-
-            if personal_best_cost[particle] > 99999 # if the first isnt good, we reinitialized
-                
-                partial_placement = zeros(Int, nv(v_network))
-                partial_placement[most_central_v_node] = rand(capacited_nodes)
-                placement, placement_cost = complete_partial_placement(partial_placement; nb_nodes_to_try=ceil(Int,length(capacited_nodes)/4))
-                routing, routing_cost = shortest_path_routing(position[particle])
-                overall_cost = placement_cost + routing_cost
-
-                
-                if overall_cost < 999999
-                    position[particle] = placement
-                    personal_best[particle] = placement
-                    personal_best_cost[particle] = overall_cost
-                end
         
-                if overall_cost < global_best_cost
-                    global_best = position[particle]
-                    global_best_cost = overall_cost
-                    print_things && println("We got a new best solution! value $overall_cost")
-                end
+    # Construct initial mapping
+    centrality_nodes = closeness_centrality(s_network)
+    s_nodes_scores = [ (centrality_nodes[s_node] + 0.5 * rand() ) for s_node in capacited_nodes ]
+    s_node_start = capacited_nodes[argmin(s_nodes_scores)]
+
+    placement = zeros(Int32, nv(v_network))
+    placement[most_central_v_node] = s_node_start
+
+    placement, placement_cost = complete_partial_placement(placement; nb_nodes_to_try=length(capacited_nodes)) 
+    routing, routing_cost = shortest_path_routing(placement)
+    total_cost = placement_cost + routing_cost
 
 
-
-            else # we do a normal iteration
-                velocity[particle] = plus( velocity[particle], 
-                                            minus(personal_best[particle], position[particle]), 
-                                            minus(global_best, position[particle]))
-                position[particle], placement_cost = times(position[particle], velocity[particle])
-
-                routing, routing_cost = shortest_path_routing(position[particle])
-                overall_cost = placement_cost + routing_cost
-            end
-            
-            if overall_cost < personal_best_cost[particle]
-                    personal_best[particle] = position[particle]
-                    personal_best_cost[particle] = overall_cost
-            end
-            if overall_cost < global_best_cost
-                    global_best_cost = overall_cost
-                    global_best = position[particle]
-                    print_things && println("We got a new best solution! value $global_best_cost")
-            end
-
-        end
-
-        iter += 1
-
+    if total_cost>10e6
+        return (mapping=nothing,
+                    mapping_cost=10e9
+        )
     end
 
-    #println("Final best solution: $global_best")
-    print_things && println("PSO finished at iteration $nb_iter, finished in $(time()-time_beginning)s, best solution: $global_best_cost")
-    routing, routing_cost_shortest_path = shortest_path_routing(global_best, true)
-    final_mapping = Mapping(v_network, s_network, global_best, routing)
+    final_mapping = Mapping(v_network, s_network, placement, routing)
 
-    return (mapping = final_mapping, mapping_cost = global_best_cost)  
+    #println("Find the solution of $total_cost in $(time()-time_beginning)")
+    return (mapping = final_mapping,
+            mapping_cost = total_cost)
 end
 
 
 
+function solve_multi_greedy(instance; number_greedy = 10, time_max = 10)
 
+    time_beginning = time()
+    best_cost = 10e9
+    best_mapping = nothing
+    #println("??")
 
+    while iter < number_greedy && time_overall < time_max
+
+        result = solve_greedy(instance)
+        if result[:mapping_cost] < best_cost 
+            println("New best mapping found!")
+            best_cost = result[:mapping_cost]
+        end
+
+        time_overall = time() - time_beginning
+    end
+
+    return (mapping=nothing, mapping_cost=best_cost)
+end
