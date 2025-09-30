@@ -101,7 +101,7 @@ end
 
 
 
-function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, linear=false)
+function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
@@ -116,12 +116,13 @@ function solve_compact_ffplus(instance; time_solver = 30, stay_silent=true, line
     else
         print("Starting solving... ")
     end
+    set_optimizer_attribute(model, "NoRelHeurTime", 100000)
 
-    if linear
-        relax_integrality(model)
-    end
-    #set_optimizer_attribute(model, "CPXPARAM_Emphasis_MIP", 5)
-
+    set_optimizer_attribute(model, "Heuristics", 1.0)
+    set_optimizer_attribute(model, "Cuts", 0)
+    set_optimizer_attribute(model, "Presolve", 0)          # optional
+    set_optimizer_attribute(model, "MIPFocus", 1)
+    set_optimizer_attribute(model, "NodeMethod", 0)
     optimize!(model)
 
     status = primal_status(model)

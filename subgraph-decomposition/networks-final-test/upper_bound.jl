@@ -36,7 +36,7 @@ function solve_price_branch(instance; pricer="milp", nb_virtual_subgraph=0, nb_c
 
     # === SOME PARAMETERS === #
     alpha_colge=0.25
-    nb_columns_init = min(nb_columns_max, 50)
+    nb_columns_init = min(nb_columns_max, 100)
 
 
 

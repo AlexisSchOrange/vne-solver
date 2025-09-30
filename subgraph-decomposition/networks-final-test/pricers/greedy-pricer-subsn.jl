@@ -126,10 +126,15 @@ function solve_greedy_pricer_subsn(v_subgraph, s_subgraph, sub_instance, origina
             capacities = [ s_node_scores[s_node] for s_node in some_s_nodes]
             capacities_norm = (capacities .- minimum(capacities)) ./ (maximum(capacities) - minimum(capacities) + 1e-9)
 
-            costs = [ node_costs[s_node] + additional_costs[v_node][s_node] for s_node in some_s_nodes]
+            costs = [ node_costs[s_node] + additional_costs_dual[v_node][s_node] for s_node in some_s_nodes]
             costs_norm = (costs .- minimum(costs)) ./ (maximum(costs) - minimum(costs) + 1e-9)
 
-            final_scores = 5. .* distances_norm .+ 2. .* costs_norm .+  0.5 * ( 1 .-capacities_norm)
+            cut_routing = [ additional_costs_routing[v_node][s_node] for s_node in some_s_nodes]
+            cut_norm = (cut_routing .- minimum(cut_routing)) ./ (maximum(cut_routing) - minimum(cut_routing) + 1e-9)
+
+
+
+            final_scores = 3. .* distances_norm .+ 2. * cut_norm .+ 1. .* costs_norm .+  0. * ( 1 .-capacities_norm)
 
             selected_idx = argmin(final_scores)
             s_node_selected = some_s_nodes[selected_idx]
@@ -145,7 +150,7 @@ function solve_greedy_pricer_subsn(v_subgraph, s_subgraph, sub_instance, origina
 
         placement_cost = 0
         for v_node in vertices(v_network)
-            placement_cost += node_costs[placement[v_node]] + additional_costs[v_node][placement[v_node]]
+            placement_cost += node_costs[placement[v_node]] + additional_costs_routing[v_node][placement[v_node]] + additional_costs_dual[v_node][placement[v_node]]
         end
 
         return placement, placement_cost
@@ -209,10 +214,11 @@ function solve_greedy_pricer_subsn(v_subgraph, s_subgraph, sub_instance, origina
     shortest_paths = floyd_warshall_shortest_paths(s_network_dir, distmx)
 
     # penalty = dual costs for flow conservation and flow departure constraints
-    additional_costs = []
+    additional_costs_dual = []
     for v_node in vertices(v_subgraph.graph)
 
-        current_additional_costs = copy(additional_costs_routing[v_node])
+        #current_additional_costs = copy(additional_costs_routing[v_node])
+        current_additional_costs = zeros(length(s_network))
 
         original_v_node = v_subgraph.nodes_of_main_graph[v_node]
         for cut_edge in vn_decompo.v_edges_master
@@ -233,8 +239,7 @@ function solve_greedy_pricer_subsn(v_subgraph, s_subgraph, sub_instance, origina
             end
 
         end
-        push!(additional_costs, current_additional_costs)
-        #println("Additional costs for node $v_node: $current_additional_costs")
+        push!(additional_costs_dual, current_additional_costs)
     end
     
     
@@ -255,8 +260,6 @@ function solve_greedy_pricer_subsn(v_subgraph, s_subgraph, sub_instance, origina
     centrality_nodes = closeness_centrality(s_network)
 
     while iter < nb_iterations
-
-
         # Construct initial mapping
         s_nodes_scores = [ (centrality_nodes[s_node] + 0.5 * rand() ) for s_node in capacited_nodes ]
         s_node_start = capacited_nodes[argmin(s_nodes_scores)]
@@ -266,9 +269,13 @@ function solve_greedy_pricer_subsn(v_subgraph, s_subgraph, sub_instance, origina
     
         placement, placement_cost = complete_partial_placement(placement) 
         routing, routing_cost = shortest_path_routing(placement)
-    
-        best_cost = placement_cost + routing_cost
-        best_placement = placement
+        
+        total_cost = placement_cost + routing_cost
+        
+        if total_cost < best_cost 
+            best_placement = placement
+            best_cost = total_cost
+        end
 
         iter += 1
     end
