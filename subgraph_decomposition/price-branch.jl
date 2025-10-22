@@ -9,7 +9,7 @@ includet("../../utils/import_utils.jl")
 # utils colge
 includet("utils/master-problem.jl")
 includet("utils/graph-decomposition.jl")
-includet("utils/partition-graph.jl")
+includet("../utils/partition-graph.jl")
 
 # pricers
 includet("pricers/milp-pricer-subsn-routing.jl")

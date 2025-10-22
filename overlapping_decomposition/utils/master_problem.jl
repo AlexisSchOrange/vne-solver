@@ -1,82 +1,6 @@
+using Graphs, MetaGraphsNext
+using CPLEX, JuMP
 
-using JuMP, CPLEX
-
-### ALL THE STUFF THAT IS NEEDED FOR THE DECOMPOSITION
-
-### === Structs
-struct NetworkDecomposition
-    subgraphs
-    v_nodes_assignment
-    v_edges_master
-    overlapping_nodes
-end
-
-struct Subgraph
-    graph
-    nodes_of_main_graph
-end
-
-
-
-
-function set_up_decompo_overlapping(instance, node_partitionning)
-
-    vn = instance.v_network
-
-        
-    node_assignment = Dict()
-    for v_node in vertices(vn)
-        node_assignment[v_node] = Dict()
-    end
-
-    # getting the subgraphs and the node assignment
-    # i couldnt make the base induced_graph function work so I did adapt it
-    subgraphs = []
-    for (i_subgraph, v_nodes) in enumerate(node_partitionning)
-        subgraph = Subgraph(my_induced_subgraph(vn, v_nodes, "subgraph_$i_subgraph"), v_nodes)
-        
-        for (i_node, v_node) in enumerate(v_nodes)
-            node_assignment[v_node][subgraph] = i_node
-        end
-        push!(subgraphs, subgraph)
-        #println("Look at my nice graph for the nodes $v_nodes")
-        #print_graph(subgraph.graph)
-    end
-
-
-    # finding out the master virtual edges
-    v_edge_master = [] 
-    for v_edge in edges(vn)
-        in_master = true
-        for subgraph_src in keys(node_assignment[src(v_edge)])
-            for subgraph_dst in keys(node_assignment[dst(v_edge)])
-                if subgraph_src == subgraph_dst
-                    in_master = false
-                end
-            end
-        end
-        if in_master
-            push!(v_edge_master, v_edge)
-        end
-    end
-
-    v_node_overlapping = Dict()
-    for v_node in vertices(vn)
-        if length(keys(node_assignment[v_node])) > 1
-            v_node_overlapping[v_node] = keys(node_assignment[v_node])
-            println("$v_node is overlapping !")
-        end
-    end
-
-    vn_decompo = NetworkDecomposition(subgraphs, node_assignment, v_edge_master, v_node_overlapping)
-
-    return vn_decompo
-end
-
-
-
-
-############============== MASTER PROBLEM 
 
 
 struct MasterProblem
@@ -94,14 +18,6 @@ struct Column
 end
 
 
-struct DualCosts
-    convexity
-    overlapping
-    capacity_s_node
-    capacity_s_edge
-    flow_conservation
-    departure
-end
 
 
 
@@ -202,6 +118,7 @@ end
 
 function add_column(master_problem, instance, vn_decompo, subgraph, mapping, cost)
 
+    v_network = instance.v_network
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
 
@@ -217,10 +134,31 @@ function add_column(master_problem, instance, vn_decompo, subgraph, mapping, cos
 
 
     lambda = @variable(model, base_name = "λ_$(subgraph.graph[][:name])_$(length(master_problem.columns[subgraph]))",lower_bound = 0., upper_bound = 1.0);
-    column = Column(lambda, mapping, cost)
+    
+
+    real_cost = 0
+
+
+    coeff_v_nodes = [1. for i in 1:nv(subgraph.graph)]
+    for v_node in vertices(subgraph.graph)
+        v_node_original = subgraph.nodes_of_main_graph[v_node]
+        if v_node_original in keys(vn_decompo.overlapping_nodes)
+            coeff_v_nodes[v_node] = 1/length(vn_decompo.overlapping_nodes[v_node_original])
+        end
+    end
+
+    for v_node in vertices(subgraph.graph)
+        real_cost += s_network[mapping.node_placement[v_node]][:cost] * coeff_v_nodes[v_node]
+    end
+
+    for v_edge in edges(subgraph.graph)
+        real_cost += mapping.edge_routing[v_edge].cost
+    end
+    
+    column = Column(lambda, mapping, real_cost)
 
     push!(master_problem.columns[subgraph], column)
-    set_objective_coefficient(model, lambda, cost)
+    set_objective_coefficient(model, lambda, real_cost)
 
     # convexity
     set_normalized_coefficient(model[:mapping_selec][subgraph], lambda, 1)
@@ -346,6 +284,18 @@ end
 
 
 
+# DUAL COSTS!
+struct DualCosts
+    convexity
+    overlapping
+    capacity_s_node
+    capacity_s_edge
+    flow_conservation
+    departure
+end
+
+
+
 function get_duals(instance, vn_decompo, master_problem)
     
     convexity = Dict()
@@ -412,7 +362,127 @@ function get_duals(instance, vn_decompo, master_problem)
 end
 
 
+function get_empty_duals(instance, vn_decompo, master_problem)
+    
+    convexity = Dict()
+    overlapping=Dict()
+    capacity_s_node = Dict()
+    capacity_s_edge = Dict()
+    flow_conservation = Dict()
+    departure = Dict()
 
+    s_network = instance.s_network
+    v_network = instance.v_network
+    model = master_problem.model
+
+    for subgraph in vn_decompo.subgraphs
+        convexity[subgraph] = 0.
+    end
+
+    for s_node in vertices(s_network)
+        overlapping[s_node]=Dict()
+        for v_node_overlapping in keys(vn_decompo.overlapping_nodes)
+            overlapping[s_node][v_node_overlapping] = Dict()
+            for i_subgraph in 1:length(vn_decompo.overlapping_nodes[v_node_overlapping])
+                overlapping[s_node][v_node_overlapping][i_subgraph]=0.
+            end
+        end
+    end
+
+    
+    flow_conservation= Dict()
+    #println("Flow conservation:")
+    for v_edge in vn_decompo.v_edges_master
+        flow_conservation[v_edge] = Dict()
+        #println("   $v_edge")
+        for s_node in vertices(instance.s_network)
+            flow_conservation[v_edge][s_node] = 0.
+            #println("       $s_node: $(dual(model[:flow_conservation][v_edge, s_node]))")
+        end
+    end
+
+    departure = Dict()
+    #println("Departure:")
+    for v_edge in vn_decompo.v_edges_master
+        #println("   $v_edge")
+        departure[v_edge] = Dict()
+        for s_node in vertices(s_network)
+            departure[v_edge][s_node] = 0.
+            #println("       $s_node: $(dual(model[:departure][v_edge, s_node]))")
+        end
+    end
+
+
+    for s_node in vertices(instance.s_network)
+        capacity_s_node[s_node]  = 0.
+    end
+
+    for s_edge in edges(instance.s_network)
+        capacity_s_edge[s_edge]  = 0.
+    end
+
+    return DualCosts(convexity, overlapping, capacity_s_node, capacity_s_edge, flow_conservation, departure)
+end
+
+
+
+function average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs;alpha=0.8)
+
+    convexity = Dict()
+    overlapping = Dict()
+    capacity_s_node = Dict()
+    capacity_s_edge = Dict()
+    flow_conservation = Dict()
+    departure = Dict()
+
+    s_network = instance.s_network
+    v_network = instance.v_network
+
+    for subgraph in vn_decompo.subgraphs
+        convexity[subgraph] = alpha * old_dual_costs.convexity[subgraph] + (1-alpha) * current_dual_costs.convexity[subgraph]
+    end
+
+
+    for s_node in vertices(s_network)
+        overlapping[s_node]=Dict()
+        for v_node_overlapping in keys(vn_decompo.overlapping_nodes)
+            overlapping[s_node][v_node_overlapping] = Dict()
+            for i_subgraph in 1:length(vn_decompo.overlapping_nodes[v_node_overlapping])
+                overlapping[s_node][v_node_overlapping][i_subgraph]= alpha * old_dual_costs.overlapping[s_node][v_node_overlapping][i_subgraph] + (1-alpha) * current_dual_costs.overlapping[s_node][v_node_overlapping][i_subgraph]
+            end
+        end
+    end
+
+
+    for v_edge in vn_decompo.v_edges_master
+        flow_conservation[v_edge] = Dict()
+        for s_node in vertices(instance.s_network)
+            flow_conservation[v_edge][s_node] = alpha * old_dual_costs.flow_conservation[v_edge][s_node] + (1-alpha) * current_dual_costs.flow_conservation[v_edge][s_node]
+        end
+    end
+
+    for v_edge in vn_decompo.v_edges_master
+        departure[v_edge] = Dict()
+        for s_node in vertices(s_network)
+            departure[v_edge][s_node] = alpha * old_dual_costs.departure[v_edge][s_node]  + (1-alpha) * current_dual_costs.departure[v_edge][s_node] 
+        end
+    end
+
+
+    for s_node in vertices(instance.s_network)
+        capacity_s_node[s_node]  = alpha * old_dual_costs.capacity_s_node[s_node] + (1-alpha) * current_dual_costs.capacity_s_node[s_node]
+    end
+
+    for s_edge in edges(instance.s_network)
+        capacity_s_edge[s_edge]  = alpha * old_dual_costs.capacity_s_edge[s_edge] + (1-alpha) * current_dual_costs.capacity_s_edge[s_edge]
+    end
+
+
+    return DualCosts(convexity, overlapping, capacity_s_node, capacity_s_edge, flow_conservation, departure)
+
+
+
+end
 
 
 ### =========== INITIALIZATION of CG: dummy cols
@@ -426,7 +496,3 @@ function add_dummy_cols(vn_decompo, model)
         set_normalized_coefficient(model[:mapping_selec][subgraph], lambda, 1)
     end
 end
-
-
-
-

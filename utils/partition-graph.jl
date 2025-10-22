@@ -1,7 +1,7 @@
  
-includet("../../../utils/import_utils.jl")
-includet("../../../utils/kahip_wrapper.jl")
-includet("../../../utils/metis_wrapper.jl")
+includet("import_utils.jl")
+includet("kahip_wrapper.jl")
+includet("metis_wrapper.jl")
 
 
 using Statistics

@@ -9,6 +9,6 @@
 	],
 	"edges": [
 		{"source": 1, "target": 2,  "dem": 1},
-		{"source": 2, "target": 3,  "dem": 1}
+		{"source": 1, "target": 3,  "dem": 1}
 	]
 }

@@ -85,7 +85,7 @@ function set_up_problem_ff_plus(instance, model)
     
     
     
-    # Star capacity constraint
+    #= Star capacity constraint => NOT FOR NOW?
     for v_node in vertices(v_network)
         necessary_bw = degree(v_network, v_node) 
         
@@ -97,7 +97,7 @@ function set_up_problem_ff_plus(instance, model)
             end 
         end
     end
-        
+    =#  
 end
 
 
