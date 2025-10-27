@@ -100,9 +100,9 @@ function solve_greedy(instance, given_placement)
         )
 
         possible_s_nodes = filter(s_node -> s_node ∉ placement, capacited_nodes)
-
+        #println("next v nodes: $next_v_nodes")
         while !isempty(next_v_nodes)
-
+            #println("hum")
             # Take a node of the list
             shuffle!(next_v_nodes)
             v_node = popfirst!(next_v_nodes)
@@ -137,6 +137,7 @@ function solve_greedy(instance, given_placement)
             possible_s_nodes = filter(!=(s_node_selected), possible_s_nodes)
         end
 
+        #println("Yo placement: $placement")
         placement_cost = 0
         for v_node in vertices(v_network)
             placement_cost += node_costs[placement[v_node]] 
@@ -208,8 +209,8 @@ function solve_greedy(instance, given_placement)
             placement[v_node] = given_placement[v_node]
         end
     end
-
     placement, placement_cost = complete_partial_placement(placement; nb_nodes_to_try=length(capacited_nodes)) 
+
     routing, routing_cost = shortest_path_routing(placement, true)
     total_cost = placement_cost + routing_cost
 

@@ -2,6 +2,8 @@
 #using Revise, JuMP, CPLEX, Gurobi
 using Revise, JuMP, CPLEX
 using Graphs, GraphsFlows
+using SparseArrays
+
 
 includet("../utils/import_utils.jl")
 
@@ -88,9 +90,10 @@ end
 
 
 
-function solve_branch_and_cut(instance; time_solver = 100)
+function solve_branch_and_cut(instance; time_solver = 100, alpha_acceptance=0.05)
     
     v_network = instance.v_network
+    s_network = instance.s_network
     s_network_dir = instance.s_network_dir
 
     time_start = time()
@@ -98,7 +101,7 @@ function solve_branch_and_cut(instance; time_solver = 100)
     set_up_problem_ff_plus(instance, model)
 
     set_time_limit_sec(model, time_solver)
-    set_optimizer_attribute(model, "CPXPARAM_Threads", 1)
+    #set_optimizer_attribute(model, "Threads", 1)
     #set_optimizmer_attribute(model, "CPXPARAM_MIP_Strategy_Search", 1)
     #set_optimizer_attribute(model, "CPX_PARAM_REPEATPRESOLVE", 0)
     #
@@ -109,29 +112,46 @@ function solve_branch_and_cut(instance; time_solver = 100)
     augmented_network = copy(s_network_dir.graph)
     add_vertex!(augmented_network) # n_s + 1: t(\ebar)
     for i in 1:n_s
-        add_edge!(augmented_network, i, n_s+1)
+        if s_network[i][:cap] > 0
+            add_edge!(augmented_network, i, n_s+1)
+        end
     end
 
     nb_cuts_overall = 0
+    nb_call = 0
     time_seperation_overall = 0
+    time_min_cut = 0
+    time_get_values = 0
+    
+    matrix_flows = zeros(Float32, n_s+1, n_s+1)
+
     function find_cutset_cuts(cb_data)
         
+        nb_call += 1
+
+        if alpha_acceptance > 0.99 # Ahah don't worry (this is ugly but it's just for the tests)
+            return
+        end
+
         time_start_separation = time()
         nb_cuts_current = 0
-
+        time_beg_getting_values = time()
         x_values = callback_value.(cb_data, model[:x])
         y_values = callback_value.(cb_data, model[:y])
-
+        time_get_values += time()-time_beg_getting_values
 
         for v_edge in edges(v_network)
-            matrix_flows = zeros(n_s+1, n_s+1)
- 
+
+            matrix_flows .= 0.0  # resets in place
+            
             for s_edge in edges(s_network_dir)
                 matrix_flows[src(s_edge), dst(s_edge)] = y_values[v_edge, s_edge]
             end
 
             for s_node in vertices(s_network_dir)
-                x_values[src(v_edge), s_node] < 0.001 && continue
+                x_values[src(v_edge), s_node] < alpha_acceptance * 1.1 && continue # reduces the number of separations
+                x_values[src(v_edge), s_node] > 0.9 && continue # prevent bug in the mincut!
+
                 # Finish flow matrix for that node - remember that no flow between u and t(\ebar) here
                 for other_s_node in vertices(s_network_dir)
                     if s_node == other_s_node
@@ -143,12 +163,31 @@ function solve_branch_and_cut(instance; time_solver = 100)
                 
                 #println("Matrix flow : $matrix_flows")
                 # min cut between s_node and n_s+1
+                time_beg_cut = time()
+                #print("uh")
+                #println("Well matrix flow for edge $v_edge and node $s_node:")
+                
                 (part1, part2, flow) = GraphsFlows.mincut(augmented_network, s_node, n_s+1, matrix_flows, DinicAlgorithm())
-                if flow < x_values[src(v_edge), s_node] - 0.001
+                #print("oh")
+                time_min_cut += time()-time_beg_cut
+                if flow < x_values[src(v_edge), s_node] - alpha_acceptance
                     if (n_s+1) ∈ part1
                         println("WOWOWOW NS+1 IS IN PART1?? $part1 and $part2 wthhh")
+                        println("I mean, I'm doing a cut between $s_node and $(n_s+1)... Is that algorithm stupid?")
                         break
                     end
+                    if (s_node) ∈ part2
+                        println("WOWOWOW $s_node IS IN PART2?? $part1 and $part2 wthhh")
+                        println("I mean, I'm doing a cut between $s_node and $(n_s+1)... Is that algorithm stupid?")
+                        break
+                    end
+                    #=
+                    for node in part1
+                        if s_network[node][:cap] > 0
+                            println("Value: $(x_values[dst(v_edge), node])")
+                        end
+                    end
+                    =#
                     cut_s_edges = get_edges_from_S1_to_S2(s_network_dir, part1, part2)
                     cut = @build_constraint(sum(model[:y][v_edge, s_edge] for s_edge in cut_s_edges) + sum( model[:x][dst(v_edge), s_other_node] for s_other_node in part1)
                         >=
@@ -200,7 +239,7 @@ function solve_branch_and_cut(instance; time_solver = 100)
     
 
     println("Find the solution $(objective_value(model)) in $(time() - time_start)")
-    println("Stats branch and cut: $time_seperation_overall s to find $nb_cuts_overall cuts")
+    println("Stats branch and cut: $time_seperation_overall s overall, $time_min_cut on mincut, $time_get_values getting values,  $nb_cuts_overall cuts found")
 
 
     return    ( sol_value= objective_value(model),
@@ -276,7 +315,8 @@ function solve_simple_cplex(instance; time_solver = 100)
         lower_bound = objective_bound(model),
         gap = relative_gap(model),
         node_count = node_count(model),
-        time_solving = (time() - time_start)
+        time_solving = (time() - time_start),
+        nb_call=nb_call
     )
 end
 
@@ -291,6 +331,8 @@ end
 
 function solve_linear(instance)
 
+    time_beginning = time()
+
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
 
@@ -300,6 +342,7 @@ function solve_linear(instance)
     relax_integrality(model)
     set_silent(model)
 
+    alpha = 0.001
 
     optimize!(model)
     value_ff = round(objective_value(model); digits=3)
@@ -332,7 +375,8 @@ function solve_linear(instance)
         x_values = value.(model[:x])
         y_values = value.(model[:y])
 
-
+        nb_new_cuts = 0
+        
         for v_edge in edges(v_network)
 
             matrix_flows = zeros(n_s+1, n_s+1)
@@ -354,8 +398,8 @@ function solve_linear(instance)
 
                 (part1, part2, flow) = GraphsFlows.mincut(augmented_network, s_node, n_s+1, matrix_flows, PushRelabelAlgorithm())
 
-                if flow < x_values[src(v_edge), s_node] - 0.0001
-                    println("Damn! $part1 to $part2: i got $flow, imma win $(x_values[src(v_edge), s_node] - flow) for $v_edge")
+                if flow < x_values[src(v_edge), s_node] - alpha
+                    #println("Damn! $part1 to $part2: i got $flow, imma win $(x_values[src(v_edge), s_node] - flow) for $v_edge")
                     cut_s_edges = get_edges_from_S1_to_S2(s_network_dir, part1, part2)
                     @constraint(model, sum(model[:y][v_edge, s_edge] for s_edge in cut_s_edges) + sum( model[:x][dst(v_edge), s_other_node] for s_other_node in part1)
                         >=
@@ -364,13 +408,14 @@ function solve_linear(instance)
 
                     nb_cuts_overall += 1
                     keep_going = true
+                    nb_new_cuts += 1
                 end
             end
 
 
         end
 
-
+        println("I generated $nb_new_cuts new cuts!")
         iter += 1
 
     end
@@ -405,6 +450,7 @@ function solve_linear(instance)
     =#
 
     value_cutting_plane = round(objective_value(model); digits=3)
+    println("\n\n\n FINISHED, obtained $value_cutting_plane in $(time() - time_beginning)s")
 
     return (value_ff, value_cutting_plane)
 end

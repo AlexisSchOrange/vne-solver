@@ -1,4 +1,4 @@
-# A clean version...
+    # A clean version...
 
 using Revise
 
@@ -41,7 +41,7 @@ function automatic_overlapping(instance; v_node_partitionning = [], nb_virtual_s
         if nb_virtual_subgraph == 0
             nb_virtual_subgraph = floor(Int, nv(v_network.graph)/10)
         end
-        v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph, max_umbalance=1.2)
+        v_node_partitionning = partition_graph(v_network.graph, nb_virtual_subgraph, max_umbalance=1.3)
     end
 
     println("Node partitionning: $v_node_partitionning")
@@ -66,7 +66,7 @@ function automatic_overlapping(instance; v_node_partitionning = [], nb_virtual_s
             end
         end
 
-        if best_score > 0
+        if best_score > 1
             println("I'm adding $best_node to cluster $best_subgraph, it had $best_score neighbors there!")
             push!(v_node_partitionning[best_subgraph], best_node)
             nb_nodes_added += 1

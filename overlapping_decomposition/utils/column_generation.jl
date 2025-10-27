@@ -23,7 +23,7 @@ function column_generation(instance, vn_decompo, master_problem; time_max = 900)
     cg_value = 10e9
     lower_bound =  0
 
-    alpha_smoothing = 0.8
+    alpha_smoothing = 0.
     dual_costs = get_empty_duals(instance, vn_decompo, master_problem)
     average_obj = -10000
 
@@ -50,16 +50,18 @@ function column_generation(instance, vn_decompo, master_problem; time_max = 900)
             return
         end
 
-        old_cg_value = cg_value
-        cg_value = objective_value(model)
-
-        if cg_value < 10e4 && average_obj > -10.
-            old_dual_costs = dual_costs
-            current_dual_costs = get_duals(instance, vn_decompo, master_problem)
-            dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_smoothing)
-        else
-            dual_costs = get_duals(instance, vn_decompo, master_problem)
+        if cg_value < 5*10e3 && average_obj > -50.
+            alpha_smoothing = 0.85
         end
+
+        old_cg_value = cg_value
+        cg_value = (1-alpha_smoothing) * objective_value(model) + alpha_smoothing * old_cg_value
+
+        old_dual_costs = dual_costs
+        current_dual_costs = get_duals(instance, vn_decompo, master_problem)
+        dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_smoothing)
+
+
             
 
         time_beginning_pricer = time()
@@ -82,8 +84,8 @@ function column_generation(instance, vn_decompo, master_problem; time_max = 900)
             sum_pricers_values += reduced_cost
         end
 
-        current_lower_bound = (1-alpha_smoothing) * cg_value + (alpha_smoothing) * old_cg_value + sum_pricers_values
-        if current_lower_bound > lower_bound && nb_iter > 5
+        current_lower_bound = cg_value + sum_pricers_values
+        if cg_value < 5*10e3 && current_lower_bound > lower_bound
             lower_bound = current_lower_bound
         end
 
