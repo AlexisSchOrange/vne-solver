@@ -234,7 +234,7 @@ function solve_branch_and_cut(instance; solver="cplex", time_solver = 100, alpha
                 
                 # min cut between s_node and n_s+1
                 time_beg_cut = time()
-                (part1, part2, flow) = GraphsFlows.mincut(augmented_network, s_node, n_s+1, matrix_flows, PushRelabelAlgorithm())
+                (part1, part2, flow) = GraphsFlows.mincut(augmented_network, s_node, n_s+1, matrix_flows, DinicAlgorithm())
                 time_min_cut += time()-time_beg_cut
                 
                 if flow < val - alpha_acceptance
@@ -790,7 +790,7 @@ function solve_linear(instance)
                     end
                 end
 
-                (part1, part2, flow) = GraphsFlows.mincut(augmented_network, s_node, n_s+1, matrix_flows, PushRelabelAlgorithm())
+                (part1, part2, flow) = GraphsFlows.mincut(augmented_network, s_node, n_s+1, matrix_flows, Dinic())
 
                 if flow < x_values[src(v_edge), s_node] - alpha
                     #println("Damn! $part1 to $part2: i got $flow, imma win $(x_values[src(v_edge), s_node] - flow) for $v_edge")
