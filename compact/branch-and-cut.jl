@@ -339,7 +339,8 @@ function solve_branch_and_cut(instance; solver="cplex", time_solver = 100, alpha
                 time_solving = (time() - time_start),
                 time_seperation = time_seperation_overall,
                 nb_cuts = nb_cuts_overall,
-                nb_call = nb_call
+                nb_call = nb_call,
+                nb_min_cut = nb_min_cut
         )
     end
 
