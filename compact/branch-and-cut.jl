@@ -790,7 +790,7 @@ function solve_linear(instance)
                     end
                 end
 
-                (part1, part2, flow) = GraphsFlows.mincut(augmented_network, s_node, n_s+1, matrix_flows, Dinic())
+                (part1, part2, flow) = GraphsFlows.mincut(augmented_network, s_node, n_s+1, matrix_flows, DinicAlgorithm())
 
                 if flow < x_values[src(v_edge), s_node] - alpha
                     #println("Damn! $part1 to $part2: i got $flow, imma win $(x_values[src(v_edge), s_node] - flow) for $v_edge")
