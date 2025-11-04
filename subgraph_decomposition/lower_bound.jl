@@ -20,7 +20,7 @@ includet("pricers/local-search-pricer-subsn-routing.jl")
 includet("pricers/milp-pricer.jl")
 
 
-function lower_bound(instance; nb_virtual_subgraph=0)
+function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9, nb_rounds_pool_management=25)
     
     
     println("Starting...")  
@@ -37,7 +37,6 @@ function lower_bound(instance; nb_virtual_subgraph=0)
 
 
     # === SOME PARAMETERS === #
-    alpha_colge=0.
     nb_columns_to_add_init = 300
     nb_columns_local_search = 500
     nb_columns_milp = 2500
@@ -177,8 +176,8 @@ function lower_bound(instance; nb_virtual_subgraph=0)
         for column in active_columns
             if value(column.variable) < 1e-6
                 columns_useless_rounds[column] += 1
-                if columns_useless_rounds[column] > 25
-                    if reduced_cost(column.variable) > 3.
+                if columns_useless_rounds[column] > nb_rounds_pool_management
+                    if reduced_cost(column.variable) > 1.
                         push!(columns_to_delete, column)
                         #println("Well, reduced cost: $(reduced_cost(column.variable))")
                     end
