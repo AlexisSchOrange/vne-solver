@@ -37,7 +37,7 @@ function lower_bound(instance; nb_virtual_subgraph=0)
 
 
     # === SOME PARAMETERS === #
-    alpha_colge=0.9
+    alpha_colge=0.
     nb_columns_to_add_init = 300
     nb_columns_local_search = 500
     nb_columns_milp = 2500
