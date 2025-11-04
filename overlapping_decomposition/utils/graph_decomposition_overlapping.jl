@@ -150,7 +150,7 @@ function set_up_decompo_overlapping_more_info(instance, sub_vns)
                     remove_it = false
                 end 
             end
-            if remove_it 
+            if remove_it
                 rem_edge!(subgraph.graph, src(v_edge), dst(v_edge))
             end
         end
@@ -158,43 +158,8 @@ function set_up_decompo_overlapping_more_info(instance, sub_vns)
         append!(edges_in_subgraphs, sub_vn["edges"])
     end
 
+    # Maybe put something to check for overlapping edges?
 
-    # finding and removing overlapping edges!
-    # This is very ugly. I was in a bit of hurry...
-    for v_edge in edges(vn)
-        common_subgraph = collect(keys(node_assignment[src(v_edge)]) ∩ keys(node_assignment[dst(v_edge)]))
-        if length(common_subgraph) ≥ 2
-            println("V edge $v_edge is in more than one subgraph: $common_subgraph")
-            size_subg = [ne(subgraph.graph) for subgraph in common_subgraph]
-            idx_ranking = sortperm(size_subg)
-            for idx_subgraph in idx_ranking[2:end]
-                subgraph = common_subgraph[idx_subgraph]
-                src_in_subgraph = node_assignment[src(v_edge)][subgraph]
-                dst_in_subgraph = node_assignment[dst(v_edge)][subgraph]
-                rem_edge!(subgraph.graph, src_in_subgraph, dst_in_subgraph)
-                if !is_connected(subgraph.graph)
-                    println("Well, the graph is not connected anymore... That sucks... Fix this or include overlapping edges...")
-                    # remove one of the two nodes from  the subgraph ?
-                    if degree(subgraph.graph, src_in_subgraph) == 0
-                        rem_vertex!(subgraph.graph, src_in_subgraph)
-                        filter!(x -> x != src(v_edge), subgraph.nodes_of_main_graph)
-                        delete!(node_assignment[src(v_edge)], subgraph)
-                        println("I removed $(src(v_edge)) from $subgraph !")
-                    end
-                    if degree(subgraph.graph, dst_in_subgraph) == 0
-                        rem_vertex!(subgraph.graph, dst_in_subgraph)
-                        filter!(x -> x != dst(v_edge), subgraph.nodes_of_main_graph)
-                        delete!(node_assignment[dst(v_edge)], subgraph)
-                        println("I removed $(dst(v_edge)) from $subgraph !")
-                    end
-                    if !is_connected(subgraph.graph)
-                        println("WTF it's still not connected??")
-                    end
-                end
-            end
-            println("I removed the edge: $common_subgraph")
-        end
-    end
 
 
     # finding overlapping nodes

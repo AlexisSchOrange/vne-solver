@@ -407,6 +407,122 @@ end
 
 # No overlappin nodes!
 function strict_stars_partition(instance)
+    v_network = instance.v_network
+    s_network = instance.s_network
+    s_network_dir = instance.s_network_dir
+
+    subgraphs = []
+    copy_v_network = copy(v_network.graph)
+    keep_on = true
+
+    real_indices = collect(1:nv(v_network)) 
+    # Graphs.jl is completly stupid when it comes to removing a node. It swaps it with the last node and then removes it. be careful... 
+
+    nodes_in_no_subgraphs = collect(1:nv(v_network))
+    v_node_partitionning = []
+    possible_centers = collect(1:nv(v_network))
+
+    while keep_on
+
+        # Get node with max degree
+        nodes_degrees = [degree(copy_v_network, v_node) for v_node in vertices(copy_v_network)]
+        node_sorted_degree = sortperm(nodes_degrees, rev=true)
+        center = 0
+        for node in node_sorted_degree
+            if real_indices[node] ∈ possible_centers
+                center = node
+                break
+            end
+        end
+        #println("The center will be $center")
+        if center == 0
+            #println("No center found?")
+            break
+        end
+        if degree(copy_v_network, center) == 0
+            #println("Degree too low: time to stop.")
+            break
+        end
+
+        #println("most central node: $node_with_max_degree, aka $(real_indices[node_with_max_degree])")
+
+        new_part = [ real_indices[center] ]
+
+        edges_subg = []
+        for neigh in neighbors(copy_v_network, center)
+            #println("Neighbor: $neigh, aka $(real_indices[neigh])")
+            push!(new_part, real_indices[neigh])
+            push!(edges_subg, get_edge(v_network, real_indices[center], real_indices[neigh]))
+        end
+
+        # Nodes from this star can not be centers anymore.
+        for v_node in new_part
+            filter!(x -> x != v_node, possible_centers)
+        end
+
+        
+        push!(subgraphs, Dict("nodes"=>new_part, "edges"=>edges_subg))
+
+        for v_node in new_part
+            if v_node ∈ nodes_in_no_subgraphs
+                filter!(x -> x != v_node, nodes_in_no_subgraphs)
+            end
+        end
+
+
+        # remove first the leafs of the star, because of how it's done in Graphs.jl
+        while length(neighbors(copy_v_network, center)) > 0
+            #println("Well now, the neighboring of $center has $(length(neighbors(copy_v_network, center))) nodes..")
+            neigh = neighbors(copy_v_network, center)[1]
+            rem_vertex!(copy_v_network, neigh)
+
+            real_indices[neigh] = real_indices[length(real_indices)]
+            #println("Real indices: $(length(real_indices))")
+            if center == length(real_indices)
+                center = neigh
+                #println("Well it's time to change, now the center is $center")
+            end
+            deleteat!(real_indices, length(real_indices))
+
+
+        end
+
+        rem_vertex!(copy_v_network, center)
+        real_indices[center] = real_indices[length(real_indices)]
+        deleteat!(real_indices, length(real_indices))
+
+    end
+
+
+    println("Some nodes left? $nodes_in_no_subgraphs")
+    #println("Node partitionning: $v_node_partitionning")
+
+    # Add them to the decompo?
+    for v_node in nodes_in_no_subgraphs
+        push!(subgraphs, Dict("nodes"=>[v_node], "edges"=>[]))
+    end
+
+
+
+    vn_decompo = set_up_decompo_overlapping_more_info(instance, subgraphs)
+    vn_subgraphs = vn_decompo.subgraphs
+
+    println("Virtual network decomposition done:")
+    print_stuff_subgraphs(v_network, vn_subgraphs)
+    println("   and $(length(vn_decompo.v_edges_master)) cutting edges: $(vn_decompo.v_edges_master)")
+    println("   and $(length(vn_decompo.overlapping_nodes)) overlapping nodes : $(vn_decompo.overlapping_nodes)")
+
+    
+
+    # === COLUMN GENERATION === #
+    
+    # master problem things
+    master_problem = set_up_master_problem(instance, vn_decompo)
+    print("Master problem set... ")
+
+    # column generation!
+    column_generation(instance, vn_decompo, master_problem)
+
 
 end
 
@@ -416,3 +532,176 @@ end
 # overlapping paths!
 # maybe triangle and cycles ? and the reminder are paths ?
 # It would be nice to use cycle base.
+
+
+function overlapping_path_decompo(instance)
+
+    v_network = instance.v_network
+    s_network = instance.s_network
+    s_network_dir = instance.s_network_dir
+
+    subgraphs = []
+    copy_v_network = copy(v_network.graph)
+    keep_on = true
+
+    real_indices = collect(1:nv(v_network)) 
+    # Graphs.jl swaps a node with the last node and then removes it... 
+
+    # While the the shortest path in the residual network is longer than 1, you keep on
+    while keep_on
+        
+        shortest_paths = floyd_warshall_shortest_paths(copy_v_network)
+        #println("Yo dists: $(shortest_paths.dists)")
+        for i in 1:length(shortest_paths.dists)
+            if  shortest_paths.dists[i] > 50.
+                shortest_paths.dists[i] = 0.
+            end
+        end
+        #println("After? dists: $(shortest_paths.dists)")
+
+        if maximum(shortest_paths.dists) < 0.5
+            break
+        end
+        
+        couple = argmax(shortest_paths.dists)
+        print("Wow the max length in the residual v network is $couple with $(maximum(shortest_paths.dists))")
+
+
+
+        src = couple[1]
+        dst = couple[2]
+        nodes_of_path = [dst]
+        edges_of_path = []
+        v = dst
+        while v != src
+            u = shortest_paths.parents[src, v]
+            push!(nodes_of_path, u)
+            push!(edges_of_path, get_edge(v_network, u, v))
+
+            rem_edge!(copy_v_network, get_edge(copy_v_network, u, v))
+
+            v = shortest_paths.parents[src, v]
+        end
+
+        println(" The path is: $nodes_of_path")
+
+        push!(subgraphs, Dict("nodes"=>nodes_of_path, "edges"=>edges_of_path))
+
+    end
+
+
+    vn_decompo = set_up_decompo_overlapping_more_info(instance, subgraphs)
+    vn_subgraphs = vn_decompo.subgraphs
+
+    println("Virtual network decomposition done:")
+    print_stuff_subgraphs(v_network, vn_subgraphs)
+    println("   and $(length(vn_decompo.v_edges_master)) cutting edges: $(vn_decompo.v_edges_master)")
+    println("   and $(length(vn_decompo.overlapping_nodes)) overlapping nodes : $(vn_decompo.overlapping_nodes)")
+
+    
+
+    # === COLUMN GENERATION === #
+    
+    # master problem things
+    master_problem = set_up_master_problem(instance, vn_decompo)
+    print("Master problem set... ")
+
+    # column generation!
+    column_generation(instance, vn_decompo, master_problem)
+
+
+
+end
+
+
+
+function path_strict_decompo(instance)
+
+
+    v_network = instance.v_network
+    s_network = instance.s_network
+    s_network_dir = instance.s_network_dir
+
+    subgraphs = []
+    copy_v_network = copy(v_network.graph)
+    keep_on = true
+    nodes_in_no_subgraphs = collect(1:nv(v_network))
+
+    # While the the shortest path in the residual network is longer than 1, you keep on
+    while keep_on
+        
+        shortest_paths = floyd_warshall_shortest_paths(copy_v_network)
+        #println("Yo dists: $(shortest_paths.dists)")
+        for i in 1:length(shortest_paths.dists)
+            if  shortest_paths.dists[i] > 50.
+                shortest_paths.dists[i] = 0.
+            end
+        end
+        #println("After? dists: $(shortest_paths.dists)")
+
+        if maximum(shortest_paths.dists) < 0.5
+            break
+        end
+        
+        couple = argmax(shortest_paths.dists)
+        print("Wow the max length in the residual v network is $couple with $(maximum(shortest_paths.dists))")
+
+
+
+        src = couple[1]
+        dst = couple[2]
+        nodes_of_path = [dst]
+        edges_of_path = []
+        v = dst
+        while v != src
+            u = shortest_paths.parents[src, v]
+            push!(nodes_of_path, u)
+            push!(edges_of_path, get_edge(v_network, u, v))
+            v = shortest_paths.parents[src, v]
+        end
+
+        println(" The path is: $nodes_of_path")
+
+        push!(subgraphs, Dict("nodes"=>nodes_of_path, "edges"=>edges_of_path))
+
+        for v_node in nodes_of_path
+            neighs = copy(neighbors(copy_v_network, v_node))
+            for neigh in neighs
+                rem_edge!(copy_v_network, get_edge(copy_v_network, v_node, neigh))
+            end
+        end
+
+        nodes_in_no_subgraphs = setdiff(nodes_in_no_subgraphs, nodes_of_path)
+
+    end
+
+    println("Some nodes left? $nodes_in_no_subgraphs")
+
+    # Add them to the decompo?
+    for v_node in nodes_in_no_subgraphs
+        push!(subgraphs, Dict("nodes"=>[v_node], "edges"=>[]))
+    end
+
+    vn_decompo = set_up_decompo_overlapping_more_info(instance, subgraphs)
+    vn_subgraphs = vn_decompo.subgraphs
+
+    println("Virtual network decomposition done:")
+    print_stuff_subgraphs(v_network, vn_subgraphs)
+    println("   and $(length(vn_decompo.v_edges_master)) cutting edges: $(vn_decompo.v_edges_master)")
+    println("   and $(length(vn_decompo.overlapping_nodes)) overlapping nodes : $(vn_decompo.overlapping_nodes)")
+
+    
+
+    # === COLUMN GENERATION === #
+    
+    # master problem things
+    master_problem = set_up_master_problem(instance, vn_decompo)
+    print("Master problem set... ")
+
+    # column generation!
+    column_generation(instance, vn_decompo, master_problem)
+
+
+
+end
+
