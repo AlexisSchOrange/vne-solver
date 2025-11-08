@@ -6,6 +6,8 @@ includet("master_problem.jl")
 includet("../pricers/pricer-full.jl")
 
 
+
+
 function column_generation(instance, vn_decompo, master_problem; time_max = 900)
 
     model = master_problem.model
@@ -128,3 +130,155 @@ function column_generation(instance, vn_decompo, master_problem; time_max = 900)
 
 
 end
+
+
+
+
+
+
+function column_generation_greedy(instance, vn_decompo, master_problem; nb_columns_max = 500, time_max = 100)
+
+    
+    model = master_problem.model
+
+    time_beginning = time()
+
+    #------------ GENERATION DE COLONNES
+    nb_columns = 0
+    nb_iter = 0
+
+    time_master = 0
+    time_subproblems = 0
+    time_overall = time()-time_beginning
+    
+    cg_value = 10e9
+    lower_bound =  0
+
+    alpha_smoothing = 0.
+    dual_costs = get_empty_duals(instance, vn_decompo, master_problem)
+    average_obj = -10000
+
+    println("\n------- Solving method: Greedy pricers")
+
+    print("\n\n==================== Starting CG ====================\n")
+
+    keep_on = true
+    reason = "I don't know"
+    while keep_on
+        nb_iter += 1
+
+        optimize!(model)
+        time_master +=  solve_time(model)
+
+        status = termination_status(model)
+        if status != MOI.OPTIMAL
+            println("Infeasible or unfinished: $status")
+            return
+        end
+
+        if cg_value < 5*10e3 && average_obj > -50.
+            alpha_smoothing = 0.
+        end
+
+        old_cg_value = cg_value
+        cg_value = (1-alpha_smoothing) * objective_value(model) + alpha_smoothing * old_cg_value
+
+        old_dual_costs = dual_costs
+        dual_costs = get_duals(instance, vn_decompo, master_problem)
+        #dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_smoothing)
+
+        time_beginning_pricer = time()
+        has_found_new_column = false
+        sum_pricers_values = 0
+        current_nb_columns = 0
+
+        for vn_subgraph in vn_decompo.subgraphs
+            
+            column, true_cost, reduced_cost = solve_greedy_pricer(instance, vn_decompo, vn_subgraph, dual_costs)
+
+            if reduced_cost < -0.0001
+                has_found_new_column = true 
+                add_column(master_problem, instance, vn_decompo, vn_subgraph, column, true_cost)
+                nb_columns += 1
+                current_nb_columns += 1
+            end
+
+            sum_pricers_values += reduced_cost
+        end
+
+
+        time_subproblems += time() - time_beginning_pricer
+
+        average_obj = sum_pricers_values/current_nb_columns
+
+        @printf("Iter %2d  CG bound: %10.3f  %5d column  time: %5.2fs  average reduced cost: %10.3f \n",
+            nb_iter, cg_value, nb_columns, time_overall, average_obj)
+
+
+
+        time_overall = time()-time_beginning
+        if time_overall < time_max
+            keep_on = true
+            if !has_found_new_column
+                keep_on = false
+                reason="no improving columns"
+            end
+        else
+            keep_on = false
+            reason="time limit"
+        end
+
+
+    end
+
+        
+
+
+    print("\n==================== CG finished ====================\nReason: $reason \n")
+    println("Time in MP: $(round(time_master; digits=3)) , time in SP: $(round(time_subproblems; digits=3)), time overall: $(round(time_overall; digits=3))")
+    println("$nb_iter iters, final value: $(round(cg_value; digits=3))")
+    println("====================================================\n")
+
+
+
+
+
+
+
+
+
+
+
+end
+
+
+
+
+
+function column_generation_subsn(instance, vn_decompo, master_problem; nb_columns = 1000, time_max = 500)
+
+
+
+end
+
+
+
+
+
+function column_generation_subsn_greedy(instance, vn_decompo, master_problem; nb_columns=500, time_max = 100)
+
+
+
+
+end
+
+
+
+
+
+
+
+
+
+
+

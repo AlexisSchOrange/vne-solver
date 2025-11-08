@@ -302,7 +302,7 @@ end
 # Here, looking at real stars:
 # Subgraphs are real stars, I don't take edges that are "wheel edges".
 # More edges in master problem
-function stars_real_2(instance)
+function stars_overlapping_decompo(instance)
     v_network = instance.v_network
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
@@ -398,7 +398,7 @@ function stars_real_2(instance)
     print("Master problem set... ")
 
     # column generation!
-    column_generation(instance, vn_decompo, master_problem)
+    column_generation(instance, vn_decompo, master_problem, time_max = 100)
 
 end
 
@@ -406,7 +406,7 @@ end
 
 
 # No overlappin nodes!
-function strict_stars_partition(instance)
+function stars_strict_decompo(instance)
     v_network = instance.v_network
     s_network = instance.s_network
     s_network_dir = instance.s_network_dir
@@ -534,7 +534,7 @@ end
 # It would be nice to use cycle base.
 
 
-function overlapping_path_decompo(instance)
+function path_overlapping_decompo(instance)
 
     v_network = instance.v_network
     s_network = instance.s_network
@@ -704,4 +704,25 @@ function path_strict_decompo(instance)
 
 
 end
+
+
+
+function cycle_overlapping_decompo(instance)
+
+
+
+end
+
+
+
+function cycle_strict_decompo(instance)
+
+
+
+end
+
+
+
+
+
 

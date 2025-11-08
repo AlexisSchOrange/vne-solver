@@ -10,17 +10,17 @@ using Printf
 includet("../utils/import_utils.jl")
 
 # utils colge
-includet("utils/master_problem.jl")
-includet("utils/graph_decomposition.jl")
+includet("utils/master-problem.jl")
+includet("utils/graph-decomposition.jl")
 includet("../utils/partition-graph.jl")
 
 # pricers
-includet("pricers/milp_pricer_subsn.jl")
-includet("pricers/greedy_pricer_subsn.jl")
-includet("pricers/milp_pricer.jl")
+includet("pricers/milp-pricer-subsn-routing.jl")
+includet("pricers/local-search-pricer-subsn-routing.jl")
+includet("pricers/milp-pricer.jl")
 
 
-function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
+function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9, nb_rounds_pool_management=25)
     
     
     println("Starting...")  
@@ -37,7 +37,8 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
 
 
     # === SOME PARAMETERS === #
-    nb_columns_local_search = 800
+    nb_columns_to_add_init = 300
+    nb_columns_local_search = 500
     nb_columns_milp = 2500
     time_max_heuristics = 1200
     time_max_overall = 3600
@@ -67,6 +68,8 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
     print("Master problem set... ")
     empty_dual_costs = get_empty_duals(instance, vn_decompo)
 
+    active_columns = Column[]
+    columns_useless_rounds = Dict()
 
 
 
@@ -86,6 +89,37 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
         induced_subg = my_induced_subgraph(s_network, cluster, "sub_sn_$i_subgraph")
         push!(sn_subgraphs, Subgraph(induced_subg, cluster))
     end
+    println("Substrate network decomposition done:")
+    print_stuff_subgraphs(s_network, sn_subgraphs)
+
+
+
+
+
+
+
+
+    # ====== STEP 1 : PAVING ON STRICT PARTITION ======= #
+
+    println("Paving time...")
+    time_0 = time()
+
+
+    
+    result = find_columns(instance, vn_subgraphs, sn_subgraphs, vn_decompo, empty_dual_costs, solver="local-search", nb_iterations=100, nb_columns=nb_columns_to_add_init)
+    sub_mappings = result[:mappings]
+    for v_subgraph in vn_decompo.subgraphs
+        for mapping in sub_mappings[v_subgraph]
+            column = add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
+            nb_columns += 1
+            push!(active_columns, column)
+            columns_useless_rounds[column] = 0
+        end
+    end
+
+    println("\nInitialization dong: \n$nb_columns columns gotten, with local-search, in $(time() - time_0)s\n")
+
+
 
 
     # ======= ITERATION OF MASTER PROBLEM ======= #
@@ -99,8 +133,8 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
     )
 
 
-    # ====== STEP 1: PAVING WITH HEURISTICS (local search then milp)
-    println("------- Part 1: Reduced pricers")
+    # ====== STEP 2: PAVING WITH HEURISTICS (local search then milp)
+    println("------- Part 2: Reduced pricers")
 
     # need to complete the substrate graphs!
     nb_nodes_subgraph = 3. * size_max_v_subgraph
@@ -124,9 +158,7 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
 
     keep_on = true
     reason = "I don't know"
-    pricer = "greedy"
-
-    current_alpha_colge = 0.
+    pricer = "local-search"
 
     while keep_on
         nb_iter += 1
@@ -135,23 +167,47 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
         # ---- pricers part
         old_dual_costs = used_dual_costs
         current_dual_costs = get_duals(instance, vn_decompo, master_problem)
-        used_dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=current_alpha_colge)
+        used_dual_costs = average_dual_costs(instance, vn_decompo, old_dual_costs, current_dual_costs, alpha=alpha_colge)
         
 
+        columns_to_delete = Column[]
+        
+
+        for column in active_columns
+            if value(column.variable) < 1e-6
+                columns_useless_rounds[column] += 1
+                if columns_useless_rounds[column] > nb_rounds_pool_management
+                    if reduced_cost(column.variable) > 1.
+                        push!(columns_to_delete, column)
+                        #println("Well, reduced cost: $(reduced_cost(column.variable))")
+                    end
+                end
+            else
+                columns_useless_rounds[column] = 0
+            end
+        end
+        for column in columns_to_delete
+            #println("Ok i'm deleting a column")
+            fix(column.variable, 0.0; force=true)
+            delete!(columns_useless_rounds, column)
+            filter!(x -> x!=column, active_columns)
+        end
+
         result = find_columns(  instance, vn_subgraphs, sn_subgraphs_2, vn_decompo, used_dual_costs; 
-                    solver=pricer, nb_iterations=1, nb_columns=25)
+                    solver=pricer, nb_iterations=1, nb_columns=100)
 
         sub_mappings = result[:mappings]
         for v_subgraph in vn_decompo.subgraphs
             for mapping in sub_mappings[v_subgraph]
                 column = add_column(master_problem, instance, v_subgraph, mapping, get_cost_placement(mapping) + get_cost_routing(mapping))
                 nb_columns += 1
+                push!(active_columns, column)
+                columns_useless_rounds[column] = 0    
             end
         end
 
         average_reduced_costs = result[:average_reduced_costs]
 
-        
 
 
         # ---- master problem part
@@ -163,27 +219,17 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
 
         time_overall = time()-time_beginning
 
+        nb_active_columns = length(active_columns)
 
-        @printf("Iter %2d  CG bound: %10.3f,  lower bound: %10.3f,    nb columns  %5d,       time: %5.2fs,   average reduced costs %5.2f \n",
-                    nb_iter, cg_value, lower_bound, nb_columns, time_overall, average_reduced_costs)
+        @printf("Iter %2d  CG bound: %10.3f,  lower bound: %10.3f,    nb active columns %5d / %5d,       time: %5.2fs,   average reduced costs %5.2f \n",
+                    nb_iter, cg_value, lower_bound, nb_active_columns, nb_columns, time_overall, average_reduced_costs)
     
 
 
         
         # ----- useful things
 
-        if cg_value < 10e4 && average_reduced_costs > - 50 && pricer=="milp" && current_alpha_colge < 0.1
-            println("Stabilizing now!")
-            current_alpha_colge = alpha_colge
-        end
-
-        if average_reduced_costs > -2.5 && nb_columns > 1000 && pricer=="milp"
-            keep_on = false
-            reason="Columns are not that interesting!"
-        end
-
-
-        if nb_columns > nb_columns_local_search && pricer == "greedy"
+        if nb_columns > nb_columns_local_search && pricer == "local-search"
             pricer="milp"
             println("Switching to milp!")
         end
@@ -193,14 +239,15 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
             reason="Got enough columns"
         end
 
-
+        if average_reduced_costs > -2.5 && nb_columns > 1000
+            keep_on = false
+            reason="Columns are not that interesting!"
+        end
 
         if time_overall > time_max_heuristics
             keep_on = false
             reason="Enough time"
         end
-
-
 
     end
     println("\n\n Step 2 finished, reason: $reason. \n\n\n")
@@ -246,6 +293,8 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
                 has_found_new_column = true
                 column = add_column(master_problem, instance, vn_subgraph, sub_mapping, true_cost)
                 nb_columns += 1
+                push!(active_columns, column)
+                columns_useless_rounds[column] = 0    
             end
             
             if isnothing(sub_mapping)
@@ -277,9 +326,10 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
         time_overall = time()-time_beginning
         average_obj = sum_pricers_values/length(vn_decompo.subgraphs)
 
+        nb_active_columns = length(active_columns)
 
-        @printf("Iter %2d  CG bound: %10.3f,  lower bound: %10.3f,    nb columns  %5d,       time: %5.2fs,   average reduced costs %5.2f \n",
-                    nb_iter, cg_value, lower_bound, nb_columns, time_overall, average_obj)
+        @printf("Iter %2d  CG bound: %10.3f,  lower bound: %10.3f,    nb active columns %5d / %5d,       time: %5.2fs,   average reduced costs %5.2f \n",
+                    nb_iter, cg_value, lower_bound, nb_active_columns, nb_columns, time_overall, average_obj)
 
 
 
@@ -292,10 +342,6 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
         if time_left < 0.5
             keep_on = false
             reason="time limit"
-        end
-
-        if cg_value < 10e4 && average_obj > - 50
-            current_alpha_colge = alpha_colge
         end
 
     end
@@ -385,11 +431,11 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
     
 
             # GETTING THE SUBMAPPING
-            if solver == "greedy"
-                    result = solve_greedy_pricer_subsn(v_subgraph, s_subgraph, sub_instance, instance, vn_decompo, dual_costs, additional_costs_routing, nb_iterations=100)
-                    sub_mapping = result[:sub_mapping]
-                    cost = result[:real_cost]
-                    reduced_cost = result[:reduced_cost]
+            if solver == "local-search"
+                result = solve_local_search_pricer_subsn_routing(v_subgraph, s_subgraph, sub_instance, instance, vn_decompo, dual_costs, additional_costs_routing, nb_iterations=1000)
+                sub_mapping = result[:sub_mapping]
+                cost = result[:real_cost]
+                reduced_cost = result[:reduced_cost]
             elseif solver == "milp"
                 result = solve_pricer_milp_routing(v_subgraph, s_subgraph, instance, vn_decompo, additional_costs_routing, dual_costs; time_solver = 60)
                 sub_mapping = result[:sub_mapping]

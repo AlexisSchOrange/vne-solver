@@ -10,17 +10,18 @@ using Printf
 includet("../utils/import_utils.jl")
 
 # utils colge
-includet("utils/master_problem.jl")
-includet("utils/graph_decomposition.jl")
+includet("utils/master-problem.jl")
+includet("utils/graph-decomposition.jl")
 includet("../utils/partition-graph.jl")
 
 # pricers
-includet("pricers/milp_pricer_subsn.jl")
-includet("pricers/greedy_pricer_subsn.jl")
-includet("pricers/milp_pricer.jl")
+includet("pricers/milp-pricer-subsn-routing.jl")
+includet("pricers/local-search-pricer-subsn-routing.jl")
+includet("pricers/greedy-pricer-subsn.jl")
+includet("pricers/milp-pricer.jl")
 
 
-function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
+function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9, nb_rounds_pool_management=500)
     
     
     println("Starting...")  
@@ -37,7 +38,7 @@ function lower_bound(instance; nb_virtual_subgraph=0, alpha_colge=0.9)
 
 
     # === SOME PARAMETERS === #
-    nb_columns_local_search = 800
+    nb_columns_local_search = 1500
     nb_columns_milp = 2500
     time_max_heuristics = 1200
     time_max_overall = 3600
@@ -385,7 +386,12 @@ function find_columns(  instance, vn_subgraphs, sn_subgraphs, vn_decompo, dual_c
     
 
             # GETTING THE SUBMAPPING
-            if solver == "greedy"
+            if solver == "local-search"
+                result = solve_local_search_pricer_subsn_routing(v_subgraph, s_subgraph, sub_instance, instance, vn_decompo, dual_costs, additional_costs_routing, nb_iterations=1000)
+                sub_mapping = result[:sub_mapping]
+                cost = result[:real_cost]
+                reduced_cost = result[:reduced_cost]
+            elseif solver == "greedy"
                     result = solve_greedy_pricer_subsn(v_subgraph, s_subgraph, sub_instance, instance, vn_decompo, dual_costs, additional_costs_routing, nb_iterations=100)
                     sub_mapping = result[:sub_mapping]
                     cost = result[:real_cost]
