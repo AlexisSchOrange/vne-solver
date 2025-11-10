@@ -23,7 +23,7 @@ includet("end-heuristic/basic-ilp.jl")
 
 
 
-function edge_partition(instance)
+function edge_decompo(instance)
 
     println("Starting...")
     time_beginning = time()
@@ -83,12 +83,12 @@ function edge_partition(instance)
     =#
 
     # column generation!
-    column_generation(instance, vn_decompo, master_problem)
+    return column_generation(instance, vn_decompo, master_problem)
 
 
     # ======= END HEURISTIC STUFF ======= #
 
-    basic_heuristic(instance, vn_decompo, master_problem, 900)
+    #basic_heuristic(instance, vn_decompo, master_problem, 900)
 
     return 
 end
@@ -398,7 +398,8 @@ function stars_overlapping_decompo(instance)
     print("Master problem set... ")
 
     # column generation!
-    column_generation(instance, vn_decompo, master_problem, time_max = 100)
+    return column_generation(instance, vn_decompo, master_problem)
+    #column_generation_greedy(instance, vn_decompo, master_problem)
 
 end
 
@@ -521,8 +522,8 @@ function stars_strict_decompo(instance)
     print("Master problem set... ")
 
     # column generation!
-    column_generation(instance, vn_decompo, master_problem)
-
+    #column_generation_greedy(instance, vn_decompo, master_problem)
+    return column_generation(instance, vn_decompo, master_problem)
 
 end
 
@@ -607,7 +608,7 @@ function path_overlapping_decompo(instance)
     print("Master problem set... ")
 
     # column generation!
-    column_generation(instance, vn_decompo, master_problem)
+    return column_generation(instance, vn_decompo, master_problem)
 
 
 
@@ -699,7 +700,7 @@ function path_strict_decompo(instance)
     print("Master problem set... ")
 
     # column generation!
-    column_generation(instance, vn_decompo, master_problem)
+    return column_generation(instance, vn_decompo, master_problem)
 
 
 

@@ -96,6 +96,7 @@ function automatic_overlapping(instance; v_node_partitionning = [], nb_virtual_s
 
 
     # generating first columns. Adapted for overlapping cg...
+    #=
     node_capacities = [get_attribute_node(s_network, s_node, :cap) for s_node in vertices(s_network)]
     capacited_nodes = [s_node for s_node in vertices(s_network) if node_capacities[s_node] ≥ 1]
     centrality_nodes = closeness_centrality(s_network)
@@ -136,14 +137,15 @@ function automatic_overlapping(instance; v_node_partitionning = [], nb_virtual_s
         end
     end
     println("$nb_columns generated before the CG!")
+    =#
 
     # column generation!
-    column_generation(instance, vn_decompo, master_problem)
+    return column_generation(instance, vn_decompo, master_problem)
 
 
     # ======= END HEURISTIC STUFF ======= #
 
-    basic_heuristic(instance, vn_decompo, master_problem, 900)
+    #basic_heuristic(instance, vn_decompo, master_problem, 900)
 
     return 
 end
