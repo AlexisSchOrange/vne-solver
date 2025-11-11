@@ -10,7 +10,7 @@ includet("../utils/import_utils.jl")
 
 # ========== CLASSICAL STUFF
 
-function set_up_problem_ff_plusplus(instance, model)
+function set_up_problem_ff_plusplus(instance, model, departure, continuity_degree)
 
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
@@ -76,16 +76,18 @@ function set_up_problem_ff_plusplus(instance, model)
     end
 
     
-    ## Departure constraints    
-    for s_node in vertices(instance.s_network)
-        for v_edge in edges(v_network)
-            @constraint(model, sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node)) 
-                >= x[src(v_edge), s_node])
+    ## Departure constraints  
+    if departure  
+        for s_node in vertices(instance.s_network)
+            for v_edge in edges(v_network)
+                @constraint(model, sum(y[v_edge, s_edge] for s_edge in get_out_edges(s_network_dir, s_node)) 
+                    >= x[src(v_edge), s_node])
+            end
         end
     end
-    
 
-    # Flow continuity constraints
+    #= Flow continuity constraints - old BEURKKK
+
     for s_node in vertices(s_network)
         for v_edge in edges(v_network)
             for s_edge_in in get_in_edges(s_network_dir, s_node)
@@ -95,14 +97,27 @@ function set_up_problem_ff_plusplus(instance, model)
                         push!(edges_out_to_put, s_edge_out)
                     end
                 end
-                if degree(s_network, s_node) < 3
+                if degree(s_network, s_node) < continuity_degree
                     @constraint(model, sum(y[v_edge, s_edge_out] for s_edge_out in edges_out_to_put) + x[dst(v_edge), s_node] 
                         >= y[v_edge, s_edge_in])
                 end
             end
         end
     end
+    =#
+    nb_continuity = 0
+    for s_edge_in in edges(s_network_dir)
+        for v_edge in edges(v_network)
+            s_node = dst(s_edge_in)
+            if degree(s_network, s_node) < continuity_degree
+                @constraint(model, sum(y[v_edge, s_edge_out] for s_edge_out in get_out_edges(s_network_dir, s_node) ) + x[dst(v_edge), s_node] 
+                    >= y[v_edge, s_edge_in] + y[v_edge, get_reverse_edge(s_network_dir, s_edge_in)] )
+                nb_continuity += 1
+            end
+        end
+    end
     
+    #=
     # Star capacity constraint
     for v_node in vertices(v_network)
         necessary_bw = degree(v_network, v_node) 
@@ -115,19 +130,29 @@ function set_up_problem_ff_plusplus(instance, model)
             end 
         end
     end
+    =#
         
+    return nb_continuity
 end
 
 
 
-function solve_compact_ffplusplus(instance; time_solver = 30, stay_silent=true, linear=false)
+function solve_compact_ffplusplus(instance; time_solver = 30, stay_silent=false, departure=true, continuity_degree = 3)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
 
+    time_start = time()
 
     model = Model(CPLEX.Optimizer)
-    set_up_problem_ff_plusplus(instance, model)
+
+    # force single thread 
+    set_optimizer_attribute(model, "CPXPARAM_Threads", 1)  # or "CPX_PARAM_THREADS"
+
+    # vary the internal randomness across runs
+    set_optimizer_attribute(model, "CPXPARAM_RandomSeed", rand(1:10^9))  # or "CPX_PARAM_RANDOMSEED"
+
+    nb_continuity = set_up_problem_ff_plusplus(instance, model, departure, continuity_degree)
 
     set_time_limit_sec(model, time_solver)
     if stay_silent
@@ -136,21 +161,21 @@ function solve_compact_ffplusplus(instance; time_solver = 30, stay_silent=true, 
         print("Starting solving... ")
     end
 
-    if linear
-        relax_integrality(model)
-    end
+
 
     optimize!(model)
 
     status = primal_status(model)
     if status != MOI.FEASIBLE_POINT
         println("Infeasible or unfinished: $status")
-        return -999, objective_bound(model), node_count(model)
+        return ( sol_value= 999999,
+            lower_bound = 999999.,
+            gap = -1.,
+            node_count = 0,
+            time_solving = (time() - time_start),
+            nb_continuity = nb_continuity
+        )
     end
-
-    println("nb de noeuds: $(node_count(model))")
-    println("Lower bound: $(objective_bound(model))")
-    println("The objective is : $(objective_value(model))")
 
     #=
     if !stay_silent
@@ -179,12 +204,16 @@ function solve_compact_ffplusplus(instance; time_solver = 30, stay_silent=true, 
     end
     =#
 
-    result = objective_value(model)
-    lb = objective_bound(model)
-    nbnodes = node_count(model)
-    return result, lb, nbnodes
+    return ( sol_value= objective_value(model),
+        lower_bound = objective_bound(model),
+        gap = relative_gap(model),
+        node_count = node_count(model),
+        time_solving = (time() - time_start),
+        nb_continuity = nb_continuity
+    )
 end
 
+#=
 
 function solve_compact_ffplus_linear(instance; time_solver = 30, stay_silent=true, linear=false)
     
@@ -213,3 +242,5 @@ function solve_compact_ffplus_linear(instance; time_solver = 30, stay_silent=tru
     end
     return (objective_value(model))
 end
+
+=#
