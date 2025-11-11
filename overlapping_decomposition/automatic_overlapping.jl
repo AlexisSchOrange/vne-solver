@@ -48,6 +48,9 @@ function automatic_overlapping(instance; v_node_partitionning = [], nb_virtual_s
 
     # Here, add the overlapping nodes!
     nb_nodes_added = 0
+
+    original_clusters = deepcopy(v_node_partitionning) # It will be simpler this way... 
+
     while nb_nodes_added < nb_overlapping_nodes
         best_node = 0
         best_subgraph = 0
@@ -56,7 +59,7 @@ function automatic_overlapping(instance; v_node_partitionning = [], nb_virtual_s
         for v_node in vertices(v_network)
             for (i_cluster, cluster) in enumerate(v_node_partitionning)
                 if v_node ∉ cluster
-                    nb_neighbor = length(neighbors(v_network, v_node) ∩ cluster )
+                    nb_neighbor = length(neighbors(v_network, v_node) ∩ original_clusters[i_cluster] )
                     if nb_neighbor > best_score
                         best_score = nb_neighbor
                         best_node = v_node
