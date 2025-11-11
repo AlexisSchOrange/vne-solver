@@ -8,7 +8,7 @@ includet("../pricers/greedy_pricer.jl")
 
 
 
-function column_generation(instance, vn_decompo, master_problem; time_max = 600, gap_stop = 0.05)
+function column_generation(instance, vn_decompo, master_problem; time_max = 600, gap_stop = 0.001)
 
     model = master_problem.model
 
