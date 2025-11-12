@@ -23,6 +23,59 @@ includet("end-heuristic/basic-ilp.jl")
 
 
 
+
+function node_decompo(instance)
+
+    println("Starting...")
+    time_beginning = time()
+
+    v_network = instance.v_network
+    s_network = instance.s_network
+    s_network_dir = instance.s_network_dir
+
+
+    # ======= SETTING UP THE DECOMPOSITION ======= #
+
+    # AUTOMATIC PARTITION
+
+
+    v_node_partitionning = []
+    for v_node in vertices(v_network)
+        push!(v_node_partitionning, [v_node])
+    end
+
+
+    println("Node partitionning: $v_node_partitionning")
+
+
+
+
+
+    vn_decompo = set_up_decompo_overlapping(instance, v_node_partitionning)
+    vn_subgraphs = vn_decompo.subgraphs
+
+    println("Virtual network decomposition done:")
+    print_stuff_subgraphs(v_network, vn_subgraphs)
+    println("   and $(length(vn_decompo.v_edges_master)) cutting edges")
+    println("   and $(length(vn_decompo.overlapping_nodes)) overlapping nodes : $(vn_decompo.overlapping_nodes)")
+
+    
+    # === COLUMN GENERATION === #
+
+    # master problem things
+    master_problem = set_up_master_problem(instance, vn_decompo)
+    print("Master problem set... ")
+
+
+
+    # column generation!
+    return column_generation(instance, vn_decompo, master_problem)
+
+
+end
+
+
+
 function edge_decompo(instance)
 
     println("Starting...")
@@ -545,8 +598,6 @@ function path_overlapping_decompo(instance)
     copy_v_network = copy(v_network.graph)
     keep_on = true
 
-    real_indices = collect(1:nv(v_network)) 
-    # Graphs.jl swaps a node with the last node and then removes it... 
 
     # While the the shortest path in the residual network is longer than 1, you keep on
     while keep_on
@@ -677,8 +728,6 @@ function path_strict_decompo(instance)
     end
 
     println("Some nodes left? $nodes_in_no_subgraphs")
-
-    # Add them to the decompo?
     for v_node in nodes_in_no_subgraphs
         push!(subgraphs, Dict("nodes"=>[v_node], "edges"=>[]))
     end
@@ -710,6 +759,67 @@ end
 
 function cycle_overlapping_decompo(instance)
 
+    v_network = instance.v_network
+    s_network = instance.s_network
+    s_network_dir = instance.s_network_dir
+
+    subgraphs = []
+    copy_v_network = copy(v_network.graph)
+    keep_on = true
+    nodes_in_no_subgraphs = collect(1:nv(v_network))
+
+
+    while keep_on
+        
+        if length(cycle_basis(copy_v_network)) == 0
+            break
+        end
+        nb_cycle = argmin([length(bas) for bas in cycle_basis(copy_v_network)])
+        cycle = cycle_basis(copy_v_network)[nb_cycle]
+        println("Best cycle: $cycle")
+
+        edges_of_cycle= []
+
+        for i_node in 1:length(cycle)-1
+            push!(edges_of_cycle, get_edge(v_network, cycle[i_node], cycle[i_node+1]))
+        end
+        push!(edges_of_cycle, get_edge(v_network, cycle[length(cycle)], cycle[1]))
+
+        push!(subgraphs, Dict("nodes"=>cycle, "edges"=>edges_of_cycle))
+
+        for v_edge in edges_of_cycle
+            rem_edge!(copy_v_network, v_edge)
+        end
+
+        nodes_in_no_subgraphs = setdiff(nodes_in_no_subgraphs, cycle)
+
+    end
+
+
+    println("Some nodes left? $nodes_in_no_subgraphs")
+    for v_node in nodes_in_no_subgraphs
+        push!(subgraphs, Dict("nodes"=>[v_node], "edges"=>[]))
+    end
+
+    vn_decompo = set_up_decompo_overlapping_more_info(instance, subgraphs)
+    vn_subgraphs = vn_decompo.subgraphs
+
+    println("Virtual network decomposition done:")
+    print_stuff_subgraphs(v_network, vn_subgraphs)
+    println("   and $(length(vn_decompo.v_edges_master)) cutting edges: $(vn_decompo.v_edges_master)")
+    println("   and $(length(vn_decompo.overlapping_nodes)) overlapping nodes : $(vn_decompo.overlapping_nodes)")
+
+    
+
+    # === COLUMN GENERATION === #
+    
+    # master problem things
+    master_problem = set_up_master_problem(instance, vn_decompo)
+    print("Master problem set... ")
+
+    # column generation!
+    return column_generation(instance, vn_decompo, master_problem)
+
 
 
 end
@@ -717,6 +827,71 @@ end
 
 
 function cycle_strict_decompo(instance)
+
+    v_network = instance.v_network
+    s_network = instance.s_network
+    s_network_dir = instance.s_network_dir
+
+    subgraphs = []
+    copy_v_network = copy(v_network.graph)
+    keep_on = true
+    nodes_in_no_subgraphs = collect(1:nv(v_network))
+
+
+    while keep_on
+        
+        if length(cycle_basis(copy_v_network)) == 0
+            break
+        end
+        nb_cycle = argmin([length(bas) for bas in cycle_basis(copy_v_network)])
+        cycle = cycle_basis(copy_v_network)[nb_cycle]
+        println("Best cycle: $cycle")
+
+        edges_of_cycle= []
+
+        for i_node in 1:length(cycle)-1
+            push!(edges_of_cycle, get_edge(v_network, cycle[i_node], cycle[i_node+1]))
+        end
+        push!(edges_of_cycle, get_edge(v_network, cycle[length(cycle)], cycle[1]))
+
+        push!(subgraphs, Dict("nodes"=>cycle, "edges"=>edges_of_cycle))
+
+
+        for v_node in cycle
+            neighs = copy(neighbors(copy_v_network, v_node))
+            for neigh in neighs
+                rem_edge!(copy_v_network, get_edge(copy_v_network, v_node, neigh))
+            end
+        end
+
+        nodes_in_no_subgraphs = setdiff(nodes_in_no_subgraphs, cycle)
+
+    end
+
+
+    println("Some nodes left? $nodes_in_no_subgraphs")
+    for v_node in nodes_in_no_subgraphs
+        push!(subgraphs, Dict("nodes"=>[v_node], "edges"=>[]))
+    end
+
+    vn_decompo = set_up_decompo_overlapping_more_info(instance, subgraphs)
+    vn_subgraphs = vn_decompo.subgraphs
+
+    println("Virtual network decomposition done:")
+    print_stuff_subgraphs(v_network, vn_subgraphs)
+    println("   and $(length(vn_decompo.v_edges_master)) cutting edges: $(vn_decompo.v_edges_master)")
+    println("   and $(length(vn_decompo.overlapping_nodes)) overlapping nodes : $(vn_decompo.overlapping_nodes)")
+
+    
+
+    # === COLUMN GENERATION === #
+    
+    # master problem things
+    master_problem = set_up_master_problem(instance, vn_decompo)
+    print("Master problem set... ")
+
+    # column generation!
+    return column_generation(instance, vn_decompo, master_problem)
 
 
 
