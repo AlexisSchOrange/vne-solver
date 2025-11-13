@@ -10,7 +10,7 @@ includet("../utils/import_utils.jl")
 
 # ========== CLASSICAL STUFF
 
-function set_up_problem_ff_plusplus(instance, model, departure, continuity_degree)
+function set_up_problem_ff_plusplus(instance, model, departure, continuity_degree, continuity_cap)
 
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
@@ -109,10 +109,17 @@ function set_up_problem_ff_plusplus(instance, model, departure, continuity_degre
     for s_edge_in in edges(s_network_dir)
         for v_edge in edges(v_network)
             s_node = dst(s_edge_in)
+            
             if degree(s_network, s_node) < continuity_degree
-                @constraint(model, sum(y[v_edge, s_edge_out] for s_edge_out in get_out_edges(s_network_dir, s_node) ) + x[dst(v_edge), s_node] 
-                    >= y[v_edge, s_edge_in] + y[v_edge, get_reverse_edge(s_network_dir, s_edge_in)] )
-                nb_continuity += 1
+                if continuity_cap  && (s_network[s_node][cap]>0)
+                    @constraint(model, sum(y[v_edge, s_edge_out] for s_edge_out in get_out_edges(s_network_dir, s_node) ) + x[dst(v_edge), s_node] 
+                        >= y[v_edge, s_edge_in] + y[v_edge, get_reverse_edge(s_network_dir, s_edge_in)] )
+                    nb_continuity += 1
+                elseif !continuity_cap
+                    @constraint(model, sum(y[v_edge, s_edge_out] for s_edge_out in get_out_edges(s_network_dir, s_node) ) + x[dst(v_edge), s_node] 
+                        >= y[v_edge, s_edge_in] + y[v_edge, get_reverse_edge(s_network_dir, s_edge_in)] )
+                    nb_continuity += 1
+                end
             end
         end
     end
@@ -137,7 +144,7 @@ end
 
 
 
-function solve_compact_ffplusplus(instance; time_solver = 30, stay_silent=false, departure=true, continuity_degree = 3)
+function solve_compact_ffplusplus(instance; time_solver = 30, stay_silent=false, departure=true, continuity_degree = 3, continuity_cap=false)
     
     v_network = instance.v_network
     s_network_dir = instance.s_network_dir
@@ -152,7 +159,7 @@ function solve_compact_ffplusplus(instance; time_solver = 30, stay_silent=false,
     # vary the internal randomness across runs
     set_optimizer_attribute(model, "CPXPARAM_RandomSeed", rand(1:10^9))  # or "CPX_PARAM_RANDOMSEED"
 
-    nb_continuity = set_up_problem_ff_plusplus(instance, model, departure, continuity_degree)
+    nb_continuity = set_up_problem_ff_plusplus(instance, model, departure, continuity_degree, continuity_cap)
 
     set_time_limit_sec(model, time_solver)
     if stay_silent
