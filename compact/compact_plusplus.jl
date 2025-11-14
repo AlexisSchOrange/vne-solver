@@ -111,7 +111,7 @@ function set_up_problem_ff_plusplus(instance, model, departure, continuity_degre
             s_node = dst(s_edge_in)
             
             if degree(s_network, s_node) < continuity_degree
-                if continuity_cap  && (s_network[s_node][cap]>0)
+                if continuity_cap  && (s_network[s_node][:cap]>0)
                     @constraint(model, sum(y[v_edge, s_edge_out] for s_edge_out in get_out_edges(s_network_dir, s_node) ) + x[dst(v_edge), s_node] 
                         >= y[v_edge, s_edge_in] + y[v_edge, get_reverse_edge(s_network_dir, s_edge_in)] )
                     nb_continuity += 1
