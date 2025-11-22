@@ -121,20 +121,22 @@ end
 
 
 function visu_graph_fixed(g)
-    pos = spring(g; iterations=2000)
+    pos = spring(g; iterations=2000, seed=rand(1:1000))
     x = [pos[i][1] for i in 1:nv(g)]
     y = [pos[i][2] for i in 1:nv(g)]
+    println("pos: $pos")
 
     graphplot(g, 
         x=x,
         y=y,
+        names=string.(1:nv(g)),
         node_shape=:circle, 
-        node_size = 2.)
+        node_size = 1.)
 end
 
 
 function visu_partitionning_fixed(g, partitionning)
-    pos = spring(g; iterations=2000)
+    pos = stress(g; iterations=2000, seed=4)
     x = [pos[i][1] for i in 1:nv(g)]
     y = [pos[i][2] for i in 1:nv(g)]
 

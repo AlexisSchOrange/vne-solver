@@ -1,5 +1,6 @@
 using Graphs, MetaGraphsNext
 using JuMP, CPLEX
+using DataFrames
 
 includet("graph_decomposition_overlapping.jl")
 includet("master_problem.jl")
@@ -30,6 +31,9 @@ function column_generation(instance, vn_decompo, master_problem; time_max = 3600
     average_obj = -10000
     gap = 1.
 
+    df_evolution = DataFrame(time=Float64[], rmp=Float64[], best_lb=Float64[], lb=Float64[])
+
+
     print("\n\n==================== Starting CG ====================\n")
 
     # ====== full pricers
@@ -54,7 +58,7 @@ function column_generation(instance, vn_decompo, master_problem; time_max = 3600
         end
 
         
-        if cg_value < 5*10e3 && average_obj > -50.
+        if cg_value < 5*10e3 && average_obj > -25.
             alpha_smoothing = 0.85
         end
         
@@ -123,6 +127,7 @@ function column_generation(instance, vn_decompo, master_problem; time_max = 3600
             reason="gap achieved"
         end
 
+        push!(df_evolution, (time()-time_beginning, cg_value, lower_bound, current_lower_bound))
 
     end
 
@@ -143,7 +148,8 @@ function column_generation(instance, vn_decompo, master_problem; time_max = 3600
                 time = time_overall,
                 nb_columns = nb_columns,
                 nb_iter = nb_iter, 
-                gap = gap 
+                gap = gap, 
+                df_evolution = df_evolution
     )
 
 
@@ -302,16 +308,6 @@ function column_generation_greedy(instance, vn_decompo, master_problem; nb_colum
 end
 
 
-
-
-
-
-# Much like the other ... 
-function column_generation_subsn(instance, vn_decompo, master_problem; nb_columns = 1000, time_max = 500)
-
-
-
-end
 
 
 
