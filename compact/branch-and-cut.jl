@@ -100,6 +100,7 @@ function solve_branch_and_cut(instance; solver="cplex", time_solver = 100, alpha
     if solver == "cplex"
         model = Model(CPLEX.Optimizer)
         set_up_problem_ff_plus(instance, model)
+        set_optimizer_attribute(model, "CPXPARAM_RandomSeed", rand(1:10^9))  # or "CPX_PARAM_RANDOMSEED"
     elseif solver == "gurobi"
         model = Model(Gurobi.Optimizer)
         set_up_problem_ff_plus(instance, model)
@@ -723,7 +724,7 @@ end
 # ========== CLASSICAL STUFF
 
 
-function solve_linear(instance)
+function solve_cutting_plane(instance; alpha_acceptance=0.10)
 
     time_beginning = time()
 
@@ -736,7 +737,6 @@ function solve_linear(instance)
     relax_integrality(model)
     set_silent(model)
 
-    alpha = 0.001
 
     optimize!(model)
     value_ff = round(objective_value(model); digits=3)
@@ -780,7 +780,8 @@ function solve_linear(instance)
             end
 
             for s_node in vertices(s_network_dir)
-                x_values[src(v_edge), s_node] < 0.001 && continue
+                x_values[src(v_edge), s_node] < alpha_acceptance && continue
+                
                 # Finish flow matrix for that node - remember that no flow between u and t(\ebar) here
                 for other_s_node in vertices(s_network_dir)
                     if s_node == other_s_node
@@ -792,7 +793,7 @@ function solve_linear(instance)
 
                 (part1, part2, flow) = GraphsFlows.mincut(augmented_network, s_node, n_s+1, matrix_flows, DinicAlgorithm())
 
-                if flow < x_values[src(v_edge), s_node] - alpha
+                if flow < x_values[src(v_edge), s_node] - alpha_acceptance
                     #println("Damn! $part1 to $part2: i got $flow, imma win $(x_values[src(v_edge), s_node] - flow) for $v_edge")
                     cut_s_edges = get_edges_from_S1_to_S2(s_network_dir, part1, part2)
                     @constraint(model, sum(model[:y][v_edge, s_edge] for s_edge in cut_s_edges) + sum( model[:x][dst(v_edge), s_other_node] for s_other_node in part1)
@@ -815,33 +816,6 @@ function solve_linear(instance)
     end
 
 
-    #=
-    x_values = value.(model[:x])
-    y_values = value.(model[:y])
-
-
-    node_placement = []
-    for v_node in vertices(v_network)
-        for s_node in vertices(s_network_dir)
-            if x_values[v_node, s_node] > 0.01
-                push!(node_placement, s_node)
-            end
-        end
-    end
-
-    for v_edge in edges(v_network)
-        for s_edge in edges(s_network_dir)
-            if y_values[v_edge, s_edge] > 0.01
-                if (s_network_dir[src(s_edge)][:cap] == 0) ||  (s_network_dir[dst(s_edge)][:cap] == 0)
-                    println("$v_edge on $s_edge : $(y_values[v_edge, s_edge])...")
-                end
-                if (s_network_dir[src(s_edge)][:cap] == 0) &&  (s_network_dir[dst(s_edge)][:cap] == 0)
-                    println("WTF: $v_edge on $s_edge : $(y_values[v_edge, s_edge])...")
-                end
-            end
-        end
-    end
-    =#
 
     value_cutting_plane = round(objective_value(model); digits=3)
     println("\n\n\n FINISHED, obtained $value_cutting_plane in $(time() - time_beginning)s")
